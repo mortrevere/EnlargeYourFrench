@@ -89,9 +89,8 @@ class Game:
             self.current_hint = "".join(
                 ["_" if l in string.ascii_lowercase else l for l in current_word]
             )
-            await self.channel.send(
-                "{} lettres : {}".format(len(self.word), self.definition)
-            )
+            await self.channel.send(f"Mot en {len(self.word)} lettres :\n"
+                                    f"> {self.definition}", tts=True)
             max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
 
             for i in range(max_hints):
@@ -110,10 +109,8 @@ class Game:
                 return
             current_word = self.word
             self.word = None
-            await self.channel.send(
-                f"Personne n'a trouvé, le mot était: ***{current_word}***\n"
-                f"Prochain mot dans 5 secondes..."
-            )
+            await self.channel.send(f"Personne n'a trouvé, le mot était: ***{current_word}***", tts=True)
+            await self.channel.send("Prochain mot dans 5 secondes...")
 
     async def sleep(self, seconds):
         self.stop_sleep()
@@ -131,18 +128,14 @@ class Game:
         else:
             self.scores[player_id] = self.current_hint.count("_")
 
+        await self.channel.send(f"{player_id} a trouvé, le mot était:\n"
+                                f"> {current_word}", tts=True)
         if self.scores[player_id] >= POINTS_LIMIT:
-            await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
-                f"Limite de score atteinte !"
-            )
+            await self.channel.send("Limite de score atteinte !")
             await self.finish()
         else:
-            await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
-                f"Prochain mot dans 5 secondes ..."
-            )
-        await self.new_word()
+            await self.channel.send("Prochain mot dans 5 secondes ...")
+            await self.new_word()
 
     async def next(self, player_id):
         if (
