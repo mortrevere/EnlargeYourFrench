@@ -59,6 +59,8 @@ class Game:
         self.next_list = []
         self.potential_players = []
         self.current_hint = ""
+        self.finished = False
+        self.coroutine = None
 
     async def start(self):
         await self.channel.send(
@@ -70,13 +72,14 @@ class Game:
         await self.new_word()
 
     async def new_word(self):
+        self.stop_sleep()
         while True:
             self.word = None
 
             self.next_list = []
 
             async with self.channel.typing():
-                await asyncio.sleep(5)
+                await self.sleep(5)
 
             if self.kill_switch:
                 return
@@ -92,7 +95,7 @@ class Game:
             max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
 
             for i in range(max_hints):
-                await asyncio.sleep(TIME_PER_HINT)
+                await self.sleep(TIME_PER_HINT)
                 if current_word != self.word:
                     return
                 if i < max_hints:
@@ -101,7 +104,7 @@ class Game:
 
             time_elapsed_for_word = time.time() - self.word_start_time
             if time_elapsed_for_word < WORD_TIME_LIMIT:
-                await asyncio.sleep(WORD_TIME_LIMIT - time_elapsed_for_word)
+                await self.sleep(WORD_TIME_LIMIT - time_elapsed_for_word)
 
             if current_word != self.word:
                 return
@@ -111,6 +114,14 @@ class Game:
                 f"Personne n'a trouvé, le mot était: ***{current_word}***\n"
                 f"Prochain mot dans 5 secondes..."
             )
+
+    async def sleep(self, seconds):
+        self.stop_sleep()
+        self.coroutine = await asyncio.sleep(seconds)
+
+    def stop_sleep(self):
+        if self.coroutine is not None and not self.coroutine.done():
+            self.coroutine.cancel()
 
     async def found(self, player_id):
         current_word = self.word
@@ -162,7 +173,9 @@ class Game:
             self.potential_players += [player_id]
 
     async def finish(self):
+        self.stop_sleep()
         self.word = None
+        self.finished = True
         self.kill_switch = True
         await self.channel.send(
             "C'est fini, scores : \n" + get_score_string(self.scores)
@@ -183,7 +196,7 @@ async def on_message(message):
     if client.user in message.mentions:
         pass
     key = f"{message.guild.id}/{message.channel.id}"
-    if key not in GAMES:  # aucune partie ici
+    if key not in GAMES or GAMES[key].finished:  # aucune partie ici
         if client.user in message.mentions and message.content.find("play") != -1:
             game = Game(message.channel)
             GAMES[key] = game
@@ -191,9 +204,7 @@ async def on_message(message):
     else:  # partie en cours
         game = GAMES[key]
         if client.user in message.mentions and "stahp" in message.content:
-            game.word = None
             await game.finish()
-            del GAMES[key]
         elif game.word is not None:
             game.potential(message.author.mention)
             if message.content.lower().strip() == "next":
