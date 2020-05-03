@@ -44,11 +44,10 @@ def create_list_file():
                     if not (
                             len(word) < 3 or
                             word[0].isupper() or
-                            re.match(r"\w", word[0]) is None or
-                            re.match(r"\d", word[0]) is not None or
-                            re.match(r"\w", word[-1]) is None or
+                            word[0].isdigit() or
                             word[-4:] == "ment" or
-                            word.count(" ") > 2
+                            word.count(" ") > 2 or
+                            re.match(r"^\w.*\w$", word[0]) is None  # first and last char must be word letters
                     ):
                         f.write(word + "\n")
                         count += 1
