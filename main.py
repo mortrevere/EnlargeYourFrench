@@ -72,7 +72,8 @@ class Game:
         while True:
             self.word = None
             self.next_counter = 0
-            await asyncio.sleep(5)
+            async with self.channel.typing():
+                await asyncio.sleep(5)
             if self.kill_switch:
                 return
             self.word_start_time = time.time()
