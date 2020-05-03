@@ -4,6 +4,7 @@ import html
 import requests
 import random
 import os
+import math
 
 VOWELS = "aeiouy"
 CONSONANTS = "bcdfghjklmnpqrstvwz"
@@ -51,7 +52,8 @@ def create_list_file():
                     ):
                         f.write(word + "\n")
                         count += 1
-            print(count)
+            progress = count/60511 #total entries on 03/05/2020
+            print("{}[{}{}]".format('\r'*66, '='*(math.floor(progress*64)), ' '*(64-math.floor(progress*64))), end='')
 
 
 def load_list() -> List[str]:
