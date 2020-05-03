@@ -22,7 +22,7 @@ TIME_PER_HINT = 10
 PERCENT_PER_HINT = 0.2  # percent of word to reveal every TIME_PER_HINT seconds
 TOTAL_HINT_PERCENT = 0.6
 POINTS_LIMIT = 30
-NEXT_QUORUM = 3
+NEXT_QUORUM_FACTOR = 0.5  # percent of players
 
 
 GAMES = {}
@@ -56,7 +56,8 @@ class Game:
         self.definition = None
         self.kill_switch = False
         self.scores = {}
-        self.next_counter = 0
+        self.next_list = []
+        self.potential_players = []
         self.current_hint = ""
 
     async def start(self):
@@ -71,9 +72,12 @@ class Game:
     async def new_word(self):
         while True:
             self.word = None
-            self.next_counter = 0
+
+            self.next_list = []
+
             async with self.channel.typing():
                 await asyncio.sleep(5)
+
             if self.kill_switch:
                 return
             self.word_start_time = time.time()
@@ -129,20 +133,33 @@ class Game:
             )
         await self.new_word()
 
-    async def next(self):
-        self.next_counter += 1
+    async def next(self, player_id):
         if (
-            self.next_counter >= NEXT_QUORUM
+            self.word is not None
             and time.time() - self.word_start_time > TIME_PER_HINT
+            and player_id not in self.next_list
         ):
-            await self.channel.send(
-                f"Passe. Le mot était ***{self.word}*** \n"
-                f"Prochain mot dans 5 secondes ..."
-            )
-            await self.new_word()
+            self.next_list += [player_id]
+
+            if len(self.next_list) >= len(self.potential_players) * NEXT_QUORUM_FACTOR:
+                current_word = self.word
+                self.word = None
+                await self.channel.send(
+                    f"Passe. Le mot était ***{current_word}*** \n"
+                    f"Prochain mot dans 5 secondes ..."
+                )
+                await self.new_word()
+            else:
+                await self.channel.send(
+                    f"Passe ({len(self.next_list)}/{math.floor(len(self.potential_players) * NEXT_QUORUM_FACTOR)})"
+                )
 
     async def soclose(self, player_id):
         await self.channel.send(f"{player_id} est très proche !")
+
+    def potential(self, player_id):
+        if player_id not in self.potential_players:
+            self.potential_players += [player_id]
 
     async def finish(self):
         self.word = None
@@ -177,15 +194,14 @@ async def on_message(message):
             game.word = None
             await game.finish()
             del GAMES[key]
-        elif game.word is not None and message.content.lower().strip() == "next":
-            await game.next()
-        elif game.word is not None and message.content.lower().strip() == game.word:
-            await game.found(message.author.mention)
-        elif (
-            game.word is not None
-            and distance(message.content.lower().strip(), game.word) < 3
-        ):
-            await game.soclose(message.author.mention)
+        elif game.word is not None:
+            game.potential(message.author.mention)
+            if message.content.lower().strip() == "next":
+                await game.next(message.author.mention)
+            elif message.content.lower().strip() == game.word:
+                await game.found(message.author.mention)
+            elif distance(message.content.lower().strip(), game.word) < 3:
+                await game.soclose(message.author.mention)
 
     print(message)
 
