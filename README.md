@@ -4,7 +4,7 @@ A Discord bot game to enlarge your french
 
 ## Todo
 
-- [ ] Ability to skip words by voting
+- [x] Ability to skip words by voting
 - [ ] Mention contestant when they are close to the answer
 - [x] Count points from non-revealed letters
 
