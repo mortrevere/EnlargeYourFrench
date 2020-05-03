@@ -1,2 +1,3 @@
 discord
 python-dotenv
+python-Levenshtein

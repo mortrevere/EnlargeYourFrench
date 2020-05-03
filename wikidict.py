@@ -5,7 +5,7 @@ import requests
 import random
 
 VOWELS = "aeiouy"
-CONSONANTS = "bcdfghjklmnpqrstvwxz"
+CONSONANTS = "bcdfghjklmnpqrstvwz"
 WIKI_ENDPOINT = "https://en.wiktionary.org/w/index.php?title=Category%3AFrench_lemmas&printable=yes&pagefrom={}"
 
 

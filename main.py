@@ -7,6 +7,7 @@ import asyncio
 import math
 import os
 import string
+from Levenshtein import distance
 from typing import List, Tuple, Optional
 from dotenv import load_dotenv
 
@@ -31,7 +32,8 @@ client = discord.Client()
 
 def add_hint(current_hint, word):
     letters = math.floor(len(word) * PERCENT_PER_HINT)
-    if current_hint.count('_') < letters: return current_hint
+    if current_hint.count("_") < letters:
+        return current_hint
     for i in range(letters):
         j = 0
         while current_hint[j] != "_":
@@ -82,7 +84,7 @@ class Game:
             await self.channel.send(
                 "{} lettres : {}".format(len(self.word), self.definition)
             )
-            max_hints = round(TOTAL_HINT_PERCENT/PERCENT_PER_HINT)
+            max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
 
             for i in range(max_hints):
                 await asyncio.sleep(TIME_PER_HINT)
@@ -109,9 +111,9 @@ class Game:
         current_word = self.word
         self.word = None
         if player_id in self.scores:
-            self.scores[player_id] += self.current_hint.count('_')
+            self.scores[player_id] += self.current_hint.count("_")
         else:
-            self.scores[player_id] = self.current_hint.count('_')
+            self.scores[player_id] = self.current_hint.count("_")
 
         if self.scores[player_id] >= POINTS_LIMIT:
             await self.channel.send(
@@ -128,12 +130,18 @@ class Game:
 
     async def next(self):
         self.next_counter += 1
-        if self.next_counter >= NEXT_QUORUM and time.time() - self.word_start_time > TIME_PER_HINT:
+        if (
+            self.next_counter >= NEXT_QUORUM
+            and time.time() - self.word_start_time > TIME_PER_HINT
+        ):
             await self.channel.send(
                 f"Passe. Le mot était ***{self.word}*** \n"
                 f"Prochain mot dans 5 secondes ..."
             )
             await self.new_word()
+
+    async def soclose(self, player_id):
+        await self.channel.send(f"{player_id} est très proche !")
 
     async def finish(self):
         self.word = None
@@ -168,10 +176,15 @@ async def on_message(message):
             game.word = None
             await game.finish()
             del GAMES[key]
-        elif game.word is not None and message.content.lower().strip() == 'next':
+        elif game.word is not None and message.content.lower().strip() == "next":
             await game.next()
         elif game.word is not None and message.content.lower().strip() == game.word:
             await game.found(message.author.mention)
+        elif (
+            game.word is not None
+            and distance(message.content.lower().strip(), game.word) < 3
+        ):
+            await game.soclose(message.author.mention)
 
     print(message)
 
