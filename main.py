@@ -203,8 +203,6 @@ async def on_message(message):
             elif distance(message.content.lower().strip(), game.word) < 3:
                 await game.soclose(message.author.mention)
 
-    print(message)
-
 
 while True:
     try:
