@@ -1,0 +1,2 @@
+discord
+python-dotenv
