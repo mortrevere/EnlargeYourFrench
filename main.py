@@ -6,6 +6,7 @@ import time
 import asyncio
 import math
 import os
+import string
 from typing import List, Tuple, Optional
 from dotenv import load_dotenv
 
@@ -14,11 +15,12 @@ import wikidict
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 GLOBAL_TIME_LIMIT = 600
-WORD_TIME_LIMIT = 30
+WORD_TIME_LIMIT = 50
 WORD_COUNT_LIMIT = 20
 TIME_PER_HINT = 10
 PERCENT_PER_HINT = 0.2  # percent of word to reveal every TIME_PER_HINT seconds
-POINTS_LIMIT = 5
+TOTAL_HINT_PERCENT = 0.6
+POINTS_LIMIT = 30
 
 
 GAMES = {}
@@ -71,13 +73,21 @@ class Game:
             self.word_start_time = time.time()
             self.word, self.definition = wikidict.get_word_and_definition()
             current_word = self.word
-            current_hint = "_" * len(
-                current_word
-            )  # TODO hint avec les espaces / - déjà ?
+            current_hint = "".join(
+                ["_" if l in string.ascii_lowercase else l for l in current_word]
+            )
+            # TODO hint avec les espaces / - déjà ?
             await self.channel.send(
                 "{} lettres : {}".format(len(self.word), self.definition)
             )
-            max_hints = len(current_word) - 2
+            max_hints = len(current_word) - math.ceil(
+                (1 - TOTAL_HINT_PERCENT) * len(current_word)
+            ) * math.floor(len(current_word) * PERCENT_PER_HINT)
+            print(
+                "hidden letters : ",
+                math.ceil((1 - TOTAL_HINT_PERCENT) * len(current_word))
+                * math.floor(len(current_word) * PERCENT_PER_HINT),
+            )
             for i in range(max_hints):
                 await asyncio.sleep(TIME_PER_HINT)
                 if current_word != self.word:
@@ -85,6 +95,13 @@ class Game:
                 if i < max_hints:
                     current_hint = add_hint(current_hint, current_word)
                     await self.channel.send(f"**Indice** : `{current_hint}`")
+
+            time_elapsed_for_word = time.time() - self.word_start_time
+            if time_elapsed_for_word < WORD_TIME_LIMIT:
+                await asyncio.sleep(WORD_TIME_LIMIT - time_elapsed_for_word)
+
+            if current_word != self.word:
+                return
             current_word = self.word
             self.word = None
             await self.channel.send(
@@ -105,6 +122,7 @@ class Game:
                 f"{player_id} gagne sur ***{current_word}***.\n"
                 f"Limite de score atteinte !"
             )
+            await self.finish()
         else:
             await self.channel.send(
                 f"{player_id} gagne sur ***{current_word}***.\n"
