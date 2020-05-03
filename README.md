@@ -11,3 +11,4 @@ A Discord bot game to enlarge your french
 ## Enhancements
 
 - [ ] Handle more than one definition from wiki
+- [ ] Use the wikimedia API instead of parsing HTML like a caveman
