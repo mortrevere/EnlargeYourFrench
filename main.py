@@ -31,7 +31,7 @@ client = discord.Client()
 
 
 def add_hint(current_hint, word):
-    letters = math.floor(len(word) * PERCENT_PER_HINT)
+    letters = max(1, math.floor(len(word) * PERCENT_PER_HINT))
     if current_hint.count("_") < letters:
         return current_hint
     for i in range(letters):
