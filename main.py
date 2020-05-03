@@ -9,6 +9,11 @@ import asyncio
 import math
 from typing import List, Tuple, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+TOKEN = os.getenv('DISCORD_TOKEN')
+
 VOWELS = "aeiouy"
 CONSONANTS = "bcdfghjklmnpqrstvwxz"
 WIKI_ENDPOINT = 'https://en.wiktionary.org/w/index.php?title=Category%3AFrench_lemmas&printable=yes&pagefrom={}'
@@ -18,7 +23,7 @@ WORD_COUNT_LIMIT = 20
 TIME_PER_HINT = 10
 PERCENT_PER_HINT = 0.2  # pourcents du mot
 POINTS_LIMIT = 5
-TOKEN = "NzA2MTI4NDc5NDU2MDY3NjQ3.Xq1xew.I5IBkFk8SONjN90L7XFDlhwDHBU"  # TODO sys.argv[1]
+
 
 GAMES = {}
 
