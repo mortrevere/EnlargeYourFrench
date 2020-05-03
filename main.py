@@ -109,7 +109,8 @@ class Game:
                 return
             current_word = self.word
             self.word = None
-            await self.channel.send(f"Personne n'a trouvé, le mot était: ***{current_word}***", tts=True)
+            await self.channel.send(f"Personne n'a trouvé, le mot était:\n"
+                                    f"> {current_word}", tts=True)
             await self.channel.send("Prochain mot dans 5 secondes...")
 
     async def sleep(self, seconds):
@@ -148,10 +149,9 @@ class Game:
             if len(self.next_list) >= len(self.potential_players) * NEXT_QUORUM_FACTOR:
                 current_word = self.word
                 self.word = None
-                await self.channel.send(
-                    f"Passe. Le mot était ***{current_word}*** \n"
-                    f"Prochain mot dans 5 secondes ..."
-                )
+                await self.channel.send(f"Passe. Le mot était:\n"
+                                        f"> {current_word}", tts=True)
+                await self.channel.send("Prochain mot dans 5 secondes ...")
                 await self.new_word()
             else:
                 await self.channel.send(
