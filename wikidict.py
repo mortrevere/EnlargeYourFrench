@@ -47,7 +47,7 @@ def create_list_file():
                             word[0].isdigit() or
                             word[-4:] == "ment" or
                             word.count(" ") > 2 or
-                            re.match(r"^\w.*\w$", word[0]) is None  # first and last char must be word letters
+                            re.match(r"^\w.*\w$", word) is None  # first and last char must be word letters
                     ):
                         f.write(word + "\n")
                         count += 1
