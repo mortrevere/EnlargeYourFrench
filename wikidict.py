@@ -9,33 +9,43 @@ import wikitextparser as wtp
 
 VOWELS = "aeiouy"
 CONSONANTS = "bcdfghjklmnpqrstvwz"
-WIKI_ENDPOINT_EN = "https://en.wiktionary.org/w/api.php"
-WIKI_ENDPOINT_FR = "https://fr.wiktionary.org/w/index.php"
-
-LIST_FILE = "wikidict.txt"
 
 
-def create_list_file():
+class Wiki:
+    def __init__(self, lang, category, estimated):
+        self.lang = lang
+        self.list_file = f"wikidict.{lang}.txt"
+        self.api_endpoint = f"https://{lang}.wiktionary.org/w/api.php"
+        self.category = category
+        self.estimated = estimated
+
+
+WIKIS = {
+    "fr": Wiki("fr", "Catégorie:Lemmes_en_français", 203164),
+    "en": Wiki("en", "Category:English_lemmas", 468304),
+}
+
+LANG = "fr"  # TODO temporary
+
+
+def create_list_file(lang):
     print("loading from API...")
-    session = requests.Session()
     params = {
         "format": "json",
         "action": "query",
         "list": "categorymembers",
-        "cmtitle": "Category:French_lemmas",
+        "cmtitle": WIKIS[lang].category,
         "cmlimit": "500",
     }
-    response = None
-    data = None
     cont_key = None
     start = True
     count = 0
-    with open(LIST_FILE, mode="w", encoding="utf8") as f:
+    with open(WIKIS[lang].list_file, mode="w", encoding="utf8") as f:
         while start or cont_key is not None:
             start = False
             if cont_key is not None:
                 params["cmcontinue"] = cont_key
-            response = session.get(url=WIKI_ENDPOINT_EN, params=params)
+            response = requests.get(url=WIKIS[lang].api_endpoint, params=params)
             data = response.json()
             cont_key = None
             if "continue" in data and "cmcontinue" in data["continue"]:
@@ -54,7 +64,7 @@ def create_list_file():
                     ):
                         f.write(word + "\n")
                         count += 1
-            progress = count / 60511  # total entries on 03/05/2020
+            progress = count / WIKIS[lang].estimated
             print(
                 "{}[{}{}]".format(
                     "\r" * 66,
@@ -63,17 +73,18 @@ def create_list_file():
                 ),
                 end="",
             )
+        print()
 
 
-def load_list() -> List[str]:
-    if not os.path.exists(LIST_FILE):
-        create_list_file()
-    with open(LIST_FILE, mode="r", encoding="utf8") as f:
+def load_list(lang) -> List[str]:
+    if not os.path.exists(WIKIS[lang].list_file):
+        create_list_file(lang)
+    with open(WIKIS[lang].list_file, mode="r", encoding="utf8") as f:
         return [word.strip() for word in f.readlines() if len(word.strip()) > 0]
 
 
 print("loading wiktionary words...")
-WORDS = load_list()
+WORDS = load_list(LANG)  # TODO temporary
 print(f"loaded {len(WORDS)} words")
 
 # DEFINITION FETCHER
@@ -132,9 +143,14 @@ def get_random_word() -> str:
     return random.choice(WORDS)
 
 
-def get_definition(word) -> Optional[str]:
-    URL = f"https://fr.wiktionary.org/w/api.php?action=parse&format=json&prop=wikitext&page={word}"  # &prop=sections
-    r = requests.get(URL)
+def get_definition(word, lang) -> Optional[str]:
+    params = {
+        "format": "json",
+        "action": "parse",
+        "prop": "wikitext",
+        "page": word
+    }  # &prop=sections
+    r = requests.get(url=WIKIS[lang].api_endpoint, params=params)
     if not r.json().get("parse"):
         return
 
@@ -157,6 +173,6 @@ def get_word_and_definition() -> Tuple[str, str]:
     while definition is None:
         success = True
         word = get_random_word()
-        definition = get_definition(word)
+        definition = get_definition(word, LANG)  # TODO temporary
     definition = html.unescape(definition)
     return html.unescape(word), definition
