@@ -75,7 +75,6 @@ class Game:
         self.stop_sleep()
         while True:
             self.word = None
-
             self.next_list = []
 
             async with self.channel.typing():

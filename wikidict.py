@@ -78,6 +78,9 @@ print(f"loaded {len(WORDS)} words")
 
 # DEFINITION FETCHER
 
+def remove_ref(raw_html: str) -> str:
+    cleanr = re.compile("<ref>.*?</ref>")
+    return re.sub(cleanr, "", raw_html)
 
 def render_wikitext(wikitext):
     wikidef = wtp.parse(wikitext)
@@ -122,16 +125,11 @@ def render_wikitext(wikitext):
             chunks_out += [chunk]
 
     # return rendered text, adapted to markdown
-    return "".join(chunks_out).replace("'''", "**").replace("''", "*")[2:]
+    return remove_ref("".join(chunks_out).replace("'''", "**").replace("''", "*")[2:])
 
 
 def get_random_word() -> str:
     return random.choice(WORDS)
-
-
-def remove_html(raw_html: str) -> str:
-    cleanr = re.compile("<.*?>")
-    return re.sub(cleanr, "", raw_html)
 
 
 def get_definition(word) -> Optional[str]:
