@@ -89,7 +89,7 @@ class Game:
                 ["_" if l in string.ascii_lowercase else l for l in current_word]
             )
             await self.channel.send(
-                "{} lettres :\n```{}```".format(len(self.word), self.definition)
+                "{} lettres :\n{}".format(len(self.word), self.definition)
             )
             max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
 

@@ -125,7 +125,7 @@ def render_wikitext(wikitext):
             chunks_out += [chunk]
 
     # return rendered text, adapted to markdown
-    return remove_ref("".join(chunks_out).replace("'''", "**").replace("''", "*")[2:])
+    return '`' + remove_ref("".join(chunks_out).replace("'''", "**").replace("''", "*")[2:]) + '`'
 
 
 def get_random_word() -> str:
