@@ -2,3 +2,4 @@ discord
 python-dotenv
 python-Levenshtein
 wikitextparser
+requests
