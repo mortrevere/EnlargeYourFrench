@@ -5,6 +5,7 @@ import requests
 import random
 import os
 import math
+import wikitextparser as wtp
 
 VOWELS = "aeiouy"
 CONSONANTS = "bcdfghjklmnpqrstvwz"
@@ -22,7 +23,7 @@ def create_list_file():
         "action": "query",
         "list": "categorymembers",
         "cmtitle": "Category:French_lemmas",
-        "cmlimit": "500"
+        "cmlimit": "500",
     }
     response = None
     data = None
@@ -41,19 +42,27 @@ def create_list_file():
                 cont_key = data["continue"]["cmcontinue"]
             if "query" in data and "categorymembers" in data["query"]:
                 for word in data["query"]["categorymembers"]:
-                    word = word['title']
+                    word = word["title"]
                     if not (
-                            len(word) < 3 or
-                            word[0].isupper() or
-                            word[0].isdigit() or
-                            word[-4:] == "ment" or
-                            word.count(" ") > 2 or
-                            re.match(r"^\w.*\w$", word) is None  # first and last char must be word letters
+                        len(word) < 3
+                        or word[0].isupper()
+                        or word[0].isdigit()
+                        or word[-4:] == "ment"
+                        or word.count(" ") > 2
+                        or re.match(r"^\w.*\w$", word)
+                        is None  # first and last char must be word letters
                     ):
                         f.write(word + "\n")
                         count += 1
-            progress = count/60511 #total entries on 03/05/2020
-            print("{}[{}{}]".format('\r'*66, '='*(math.floor(progress*64)), ' '*(64-math.floor(progress*64))), end='')
+            progress = count / 60511  # total entries on 03/05/2020
+            print(
+                "{}[{}{}]".format(
+                    "\r" * 66,
+                    "=" * (math.floor(progress * 64)),
+                    " " * (64 - math.floor(progress * 64)),
+                ),
+                end="",
+            )
 
 
 def load_list() -> List[str]:
@@ -67,6 +76,54 @@ print("loading wiktionary words...")
 WORDS = load_list()
 print(f"loaded {len(WORDS)} words")
 
+# DEFINITION FETCHER
+
+
+def render_wikitext(wikitext):
+    wikidef = wtp.parse(wikitext)
+    links = []
+    templates = []
+
+    # resolve links text
+    for link in wikidef.wikilinks:
+        content = link.text
+        if not content:
+            content = link.title
+        links += [content]
+    chunks = (
+        wikitext.replace("[[", chr(1) + "[[").replace("]]", "]]" + chr(1)).split(chr(1))
+    )
+    chunks_out = []
+    for chunk in chunks:
+        if re.match("\[\[.*\]\]", chunk):
+            chunks_out += [links.pop(0)]
+        else:
+            chunks_out += [chunk]
+    wikitext = "".join(chunks_out)
+
+    # resolve templates names
+    for tmpl in wikidef.templates:
+        content = tmpl.name
+        if (len(tmpl.arguments) and tmpl.arguments[0].value in ("fr", "1")) or (
+            len(tmpl.arguments) == 0 and len(tmpl.name) > 3
+        ):
+            templates += [f"({content.capitalize()})"]
+        else:
+            templates += [content]
+
+    chunks = (
+        wikitext.replace("{{", chr(1) + "{{").replace("}}", "}}" + chr(1)).split(chr(1))
+    )
+    chunks_out = []
+    for chunk in chunks:
+        if re.match("\{\{.*\}\}", chunk):
+            chunks_out += [templates.pop(0)]
+        else:
+            chunks_out += [chunk]
+
+    # return rendered text, adapted to markdown
+    return "".join(chunks_out).replace("'''", "**").replace("''", "*")[2:]
+
 
 def get_random_word() -> str:
     return random.choice(WORDS)
@@ -78,40 +135,30 @@ def remove_html(raw_html: str) -> str:
 
 
 def get_definition(word) -> Optional[str]:
-    params = {
-        "title": word,
-        "printable": "yes"
-    }
-    r = requests.get(url=WIKI_ENDPOINT_FR, params=params)
-    # print(r.content.decode())
-    result = re.search("<ol>(.*)</ol>", r.content.decode().replace("\n", ""))
-    if not result:
-        return None
-    return remove_html(result.group(1))
+    URL = f"https://fr.wiktionary.org/w/api.php?action=parse&format=json&prop=wikitext&page={word}"  # &prop=sections
+    r = requests.get(URL)
+    if not r.json().get("parse"):
+        return
 
-
-def remove_citation(text: str) -> str:
-    cleanr = re.compile("\.(.*)—&#160;\((.*)\)")
-    return remove_crap(re.sub(cleanr, ".", text))
-
-
-def remove_crap(text: str) -> str:
-    return text[0 : text.find(".") + 1]
-    cleanr = re.compile("\.(.*)\(")
-    return re.sub(cleanr, "\n(", text)
+    r = r.json()["parse"]["wikitext"]["*"]
+    w = wtp.parse(r)
+    definitions = []
+    for section in w.sections:
+        title = str(section.title).strip()
+        if title and title[0:4] == "{{S|" and title.find("|fr") != -1:
+            for line in str(section).split("\n"):
+                if len(line) > 2 and line[0] == "#" and line[1] != "*":
+                    definitions += [render_wikitext(line)]
+    return "\n".join(definitions)
 
 
 def get_word_and_definition() -> Tuple[str, str]:
     success = False
     definition = None
-    word, url = None, None
+    word = None
     while definition is None:
         success = True
         word = get_random_word()
         definition = get_definition(word)
-        if definition is not None:
-            if definition.find("Variante") != -1 or len(definition.split(" ")) < 5:
-                definition = None
-    definition = html.unescape(remove_citation(definition))
-    print(word, url)
+    definition = html.unescape(definition)
     return html.unescape(word), definition
