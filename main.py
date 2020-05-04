@@ -141,7 +141,7 @@ class Game:
                 f"{player_id} gagne sur ***{current_word}***.\n"
                 f"Prochain mot dans 5 secondes ..."
             )
-        await self.new_word()
+            await self.new_word()
 
     async def next(self, player_id):
         if (
@@ -186,6 +186,11 @@ async def on_ready():
     print(f"{client.user} is connected to the following guild:\n")
     for guild in client.guilds:
         print(f"{guild.name}(id: {guild.id})")
+
+    await client.change_presence(
+        activity=discord.Game(f"élargir ton français"),
+        status=discord.Status.online
+    )
 
 
 @client.event
