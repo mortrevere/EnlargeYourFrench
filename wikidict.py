@@ -122,6 +122,8 @@ def render_wikitext(wikitext):
             len(tmpl.arguments) == 0 and len(tmpl.name) > 3
         ):
             templates += [f"({content.capitalize()})"]
+        elif len(tmpl.arguments) and tmpl.name == "w":
+            templates += [str(tmpl.arguments[0])[1:]]
         else:
             templates += [content]
 
@@ -155,6 +157,9 @@ def get_definition(word, lang) -> Optional[str]:
         return
 
     r = r.json()["parse"]["wikitext"]["*"]
+
+    if r.find('#REDIRECT[[') != -1:
+        return
     w = wtp.parse(r)
     definitions = []
     for section in w.sections:
