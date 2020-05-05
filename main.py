@@ -29,6 +29,25 @@ GAMES = {}
 
 client = discord.Client()
 
+def try_parsing_game_parameters(message):
+    chunks = message.split(' ')
+    time_limit, points_limit = GLOBAL_TIME_LIMIT, POINTS_LIMIT
+    # game time
+    try:
+        i = chunks.index('minutes')
+        if i-1 > 0 and chunks[i-1].isdigit():
+            time_limit = int(chunks[i-1])*60
+    except ValueError as e:
+        pass
+
+    # points limit
+    try:
+        i = chunks.index('points')
+        if i-1 > 0 and chunks[i-1].isdigit():
+            points_limit = int(chunks[i-1])
+    except ValueError as e:
+        pass
+    return {"time_limit" : time_limit, "points_limit" : points_limit}
 
 def add_hint(current_hint, word):
     letters = max(1, math.floor(len(word) * PERCENT_PER_HINT))
@@ -48,7 +67,7 @@ def get_score_string(scores):
 
 
 class Game:
-    def __init__(self, channel: discord.TextChannel):
+    def __init__(self, channel: discord.TextChannel, limits):
         self.channel = channel
         self.game_start_time = time.time()
         self.word_start_time = 0
@@ -61,12 +80,13 @@ class Game:
         self.current_hint = ""
         self.finished = False
         self.coroutine = None
+        self.limits = limits
 
     async def start(self):
         await self.channel.send(
             f"C'est parti ! Règles du jeu : je vous donne une définition, vous devez trouver le mot associé.\n"
-            f"Limite de temps : {GLOBAL_TIME_LIMIT}\n"
-            f"Limite de points: {POINTS_LIMIT}\n"
+            f"Limite de temps : {self.limits['time_limit']}\n"
+            f"Limite de points: {self.limits['points_limit']}\n"
             f"Début du jeu dans 5 secondes..."
         )
         await self.new_word()
@@ -130,7 +150,7 @@ class Game:
         else:
             self.scores[player_id] = self.current_hint.count("_")
 
-        if self.scores[player_id] >= POINTS_LIMIT:
+        if self.scores[player_id] >= self.limits["points_limit"]:
             await self.channel.send(
                 f"{player_id} gagne sur ***{current_word}***.\n"
                 f"Limite de score atteinte !"
@@ -202,7 +222,7 @@ async def on_message(message):
     key = f"{message.guild.id}/{message.channel.id}"
     if key not in GAMES or GAMES[key].finished:  # aucune partie ici
         if client.user in message.mentions and message.content.find("play") != -1:
-            game = Game(message.channel)
+            game = Game(message.channel, try_parsing_game_parameters(message.content))
             GAMES[key] = game
             await game.start()
     else:  # partie en cours
