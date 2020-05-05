@@ -181,7 +181,7 @@ class Game:
                 await self.new_word()
             else:
                 await self.channel.send(
-                    f"Passe ({len(self.next_list)}/{math.floor(len(self.potential_players) * NEXT_QUORUM_FACTOR)})"
+                    f"Passe ({len(self.next_list)}/{math.ceil(len(self.potential_players) * NEXT_QUORUM_FACTOR)})"
                 )
 
     async def soclose(self, player_id):
