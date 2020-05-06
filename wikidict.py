@@ -182,4 +182,4 @@ def get_word_and_definition() -> Tuple[str, str]:
         if definition[0] == False and len(definition[1]) != 1: #got a redirection
             definition = get_definition(definition[1], LANG)
     definition = html.unescape(definition)
-    return html.unescape(word), definition
+    return html.unescape(word).replace("œ", "oe"), definition
