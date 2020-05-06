@@ -179,7 +179,7 @@ def get_word_and_definition() -> Tuple[str, str]:
         success = True
         word = get_random_word()
         definition = get_definition(word, LANG)  # TODO temporary
-        if definition[0] == False and len(definition[1]) != 1: #got a redirection
+        if isinstance(definition, tuple): #got a redirection
             definition = get_definition(definition[1], LANG)
     definition = html.unescape(definition)
     return html.unescape(word).replace("œ", "oe"), definition
