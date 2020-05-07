@@ -170,7 +170,7 @@ def get_definition(word, lang) -> Optional[str]:
                     definitions += [render_wikitext(line)]
     if len(definitions) > 4:
         definitions = definitions[0:4]
-    out = "\n".join(definitions)
+    out = "\n".join(definitions).replace(word, '_'* len(word))
     if len(out) > 2000:
         return
     else:
