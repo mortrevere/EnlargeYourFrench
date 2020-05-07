@@ -12,6 +12,7 @@ from typing import List, Tuple, Optional
 from dotenv import load_dotenv
 
 import wikidict
+import scores
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -61,13 +62,14 @@ def add_hint(current_hint, word):
     return current_hint
 
 
-def get_score_string(scores):
-    sorted_keys = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)
-    return "\n".join([player + " : " + str(scores[player]) for player in sorted_keys])
+def get_score_string(game_scores):
+    sorted_keys = sorted(game_scores.keys(), key=lambda k: game_scores[k], reverse=True)
+    return "\n".join([player + " : " + str(game_scores[player]) for player in sorted_keys])
 
 
 class Game:
-    def __init__(self, channel: discord.TextChannel, limits):
+    def __init__(self, key: str, channel: discord.TextChannel, limits):
+        self.key = key
         self.channel = channel
         self.game_start_time = time.time()
         self.word_start_time = 0
@@ -199,6 +201,7 @@ class Game:
         await self.channel.send(
             "C'est fini, scores : \n" + get_score_string(self.scores)
         )
+        scores.update(self.key, self.scores)
 
 
 @client.event
@@ -220,9 +223,19 @@ async def on_message(message):
     if client.user in message.mentions:
         pass
     key = f"{message.guild.id}/{message.channel.id}"
-    if key not in GAMES or GAMES[key].finished:  # aucune partie ici
+    if client.user in message.mentions and "leaderboard" in message.content:
+        global_scores = scores.get_scores(key)
+        if global_scores is None:
+            await message.channel.send(
+                "Aucune partie enregistrée sur ce salon"
+            )
+        else:
+            await message.channel.send(
+                "Les scores de tout temps sur ce salon : \n" + global_scores
+            )
+    elif key not in GAMES or GAMES[key].finished:  # aucune partie ici
         if client.user in message.mentions and message.content.find("play") != -1:
-            game = Game(message.channel, try_parsing_game_parameters(message.content))
+            game = Game(key, message.channel, try_parsing_game_parameters(message.content))
             GAMES[key] = game
             await game.start()
     else:  # partie en cours
