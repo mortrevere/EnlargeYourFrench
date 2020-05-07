@@ -2,3 +2,4 @@ __pycache__
 .env
 .idea
 wikidict.*.txt
+high_scores.txt
