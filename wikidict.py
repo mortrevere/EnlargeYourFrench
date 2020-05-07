@@ -168,6 +168,8 @@ def get_definition(word, lang) -> Optional[str]:
             for line in str(section).split("\n"):
                 if len(line) > 2 and line[0] == "#" and line[1] != "*":
                     definitions += [render_wikitext(line)]
+    if len(definitions) > 4:
+        definitions = definitions[0:4]
     return "\n".join(definitions)
 
 
