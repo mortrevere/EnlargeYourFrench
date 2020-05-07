@@ -36,7 +36,7 @@ def update(channel, game_scores):
     if channel not in GLOBAL_SCORES:
         GLOBAL_SCORES[channel] = {}
     for player in game_scores:
-        if player not in GLOBAL_SCORES:
+        if player not in GLOBAL_SCORES[channel]:
             score = (0, 0)
         else:
             score = GLOBAL_SCORES[channel][player]
