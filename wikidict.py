@@ -164,7 +164,8 @@ def get_definition(word, lang) -> Optional[str]:
     definitions = []
     for section in w.sections:
         title = str(section.title).strip()
-        if title.find('verbe') == -1 and title and title[0:4] == "{{S|" and title.find("|fr") != -1:
+        # title.find('verbe') == -1 and
+        if title and title[0:4] == "{{S|" and title.find("|fr") != -1:
             for line in str(section).split("\n"):
                 if len(line) > 2 and line[0] == "#" and line[1] != "*":
                     definitions += [render_wikitext(line)]
