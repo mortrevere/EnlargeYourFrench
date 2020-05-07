@@ -28,3 +28,6 @@ Points are given only to the first player that finds the word, with a value equa
 If a word seems impossible to guess, any player can say `next`, and according to the number of player in the game, it will skip the word if enough players do the same.
 
 Enjoy and enlarge your french, yo.
+
+
+Special thanks to [@Klemek](https://github.com/Klemek) that helps me with this mess.
