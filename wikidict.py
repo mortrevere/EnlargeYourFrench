@@ -170,7 +170,11 @@ def get_definition(word, lang) -> Optional[str]:
                     definitions += [render_wikitext(line)]
     if len(definitions) > 4:
         definitions = definitions[0:4]
-    return "\n".join(definitions)
+    out = "\n".join(definitions)
+    if len(out) > 2000:
+        return
+    else:
+        return out
 
 
 def get_word_and_definition() -> Tuple[str, str]:
