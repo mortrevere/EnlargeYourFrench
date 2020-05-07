@@ -168,7 +168,6 @@ class Game:
     async def next(self, player_id):
         if (
             self.word is not None
-            and time.time() - self.word_start_time > TIME_PER_HINT
             and player_id not in self.next_list
         ):
             self.next_list += [player_id]
