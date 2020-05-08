@@ -14,7 +14,8 @@ CONSONANTS = "bcdfghjklmnpqrstvwz"
 class Wiki:
     def __init__(self, lang, category, estimated):
         self.lang = lang
-        self.list_file = f"wikidict.{lang}.txt"
+        self.list_file = f"data/wikidict.{lang}.txt"
+        self.exclude_file = f"data/exclude.{lang}.txt"
         self.api_endpoint = f"https://{lang}.wiktionary.org/w/api.php"
         self.category = category
         self.estimated = estimated
@@ -76,11 +77,29 @@ def create_list_file(lang):
         print()
 
 
+def load_excluded(lang):
+    if not os.path.exists(WIKIS[lang].exclude_file):
+        return []
+    with open(WIKIS[lang].exclude_file, mode="r", encoding="utf8") as f:
+        return [word.strip() for word in f.readlines() if len(word.strip()) > 0]
+
+
+def exclude(word, lang="fr"):
+    WORDS.remove(word)
+    with open(WIKIS[lang].exclude_file, mode="a", encoding="utf8") as f:
+        f.write(word + "\n")
+
+
 def load_list(lang) -> List[str]:
     if not os.path.exists(WIKIS[lang].list_file):
         create_list_file(lang)
     with open(WIKIS[lang].list_file, mode="r", encoding="utf8") as f:
-        return [word.strip() for word in f.readlines() if len(word.strip()) > 0]
+        excluded_words = load_excluded(lang)
+        return [
+            word.strip()
+            for word in f.readlines()
+            if len(word.strip()) > 0 and word.strip() not in excluded_words
+        ]
 
 
 print("loading wiktionary words...")
@@ -89,9 +108,11 @@ print(f"loaded {len(WORDS)} words")
 
 # DEFINITION FETCHER
 
+
 def remove_ref(raw_html: str) -> str:
     cleanr = re.compile("<ref>.*?</ref>")
     return re.sub(cleanr, "", raw_html)
+
 
 def render_wikitext(wikitext):
     wikidef = wtp.parse(wikitext)
@@ -138,7 +159,11 @@ def render_wikitext(wikitext):
             chunks_out += [chunk]
 
     # return rendered text, adapted to markdown
-    return '`' + remove_ref("".join(chunks_out).replace("'''", "**").replace("''", "*")[2:]) + '`'
+    return (
+        "`"
+        + remove_ref("".join(chunks_out).replace("'''", "**").replace("''", "*")[2:])
+        + "`"
+    )
 
 
 def get_random_word() -> str:
@@ -150,7 +175,7 @@ def get_definition(word, lang) -> Optional[str]:
         "format": "json",
         "action": "parse",
         "prop": "wikitext",
-        "page": word
+        "page": word,
     }  # &prop=sections
     r = requests.get(url=WIKIS[lang].api_endpoint, params=params)
     if not r.json().get("parse"):
@@ -158,8 +183,8 @@ def get_definition(word, lang) -> Optional[str]:
 
     r = r.json()["parse"]["wikitext"]["*"]
     # some redirection, usually because ’ != '
-    if r.find('#REDIRECT [[') != -1:
-        return (False, r[len('#REDIRECT [['):-2])
+    if r.find("#REDIRECT [[") != -1:
+        return (False, r[len("#REDIRECT [[") : -2])
     w = wtp.parse(r)
     definitions = []
     for section in w.sections:
@@ -171,7 +196,7 @@ def get_definition(word, lang) -> Optional[str]:
                     definitions += [render_wikitext(line)]
     if len(definitions) > 4:
         definitions = definitions[0:4]
-    out = "\n".join(definitions).replace(word, '_'* len(word))
+    out = "\n".join(definitions).replace(word, "_" * len(word))
     if len(out) > 2000:
         return
     else:
@@ -186,7 +211,7 @@ def get_word_and_definition() -> Tuple[str, str]:
         success = True
         word = get_random_word()
         definition = get_definition(word, LANG)  # TODO temporary
-        if isinstance(definition, tuple): #got a redirection
+        if isinstance(definition, tuple):  # got a redirection
             definition = get_definition(definition[1], LANG)
     definition = html.unescape(definition)
     return html.unescape(word).replace("œ", "oe"), definition

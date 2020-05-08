@@ -30,25 +30,27 @@ GAMES = {}
 
 client = discord.Client()
 
+
 def try_parsing_game_parameters(message):
-    chunks = message.split(' ')
+    chunks = message.split(" ")
     time_limit, points_limit = GLOBAL_TIME_LIMIT, POINTS_LIMIT
     # game time
     try:
-        i = chunks.index('minutes')
-        if i-1 > 0 and chunks[i-1].isdigit():
-            time_limit = int(chunks[i-1])*60
+        i = chunks.index("minutes")
+        if i - 1 > 0 and chunks[i - 1].isdigit():
+            time_limit = int(chunks[i - 1]) * 60
     except ValueError as e:
         pass
 
     # points limit
     try:
-        i = chunks.index('points')
-        if i-1 > 0 and chunks[i-1].isdigit():
-            points_limit = int(chunks[i-1])
+        i = chunks.index("points")
+        if i - 1 > 0 and chunks[i - 1].isdigit():
+            points_limit = int(chunks[i - 1])
     except ValueError as e:
         pass
-    return {"time_limit" : time_limit, "points_limit" : points_limit}
+    return {"time_limit": time_limit, "points_limit": points_limit}
+
 
 def add_hint(current_hint, word):
     letters = max(1, math.floor(len(word) * PERCENT_PER_HINT))
@@ -64,7 +66,9 @@ def add_hint(current_hint, word):
 
 def get_score_string(game_scores):
     sorted_keys = sorted(game_scores.keys(), key=lambda k: game_scores[k], reverse=True)
-    return "\n".join([player + " : " + str(game_scores[player]) for player in sorted_keys])
+    return "\n".join(
+        [player + " : " + str(game_scores[player]) for player in sorted_keys]
+    )
 
 
 class Game:
@@ -166,10 +170,7 @@ class Game:
             await self.new_word()
 
     async def next(self, player_id):
-        if (
-            self.word is not None
-            and player_id not in self.next_list
-        ):
+        if self.word is not None and player_id not in self.next_list:
             self.next_list += [player_id]
 
             if len(self.next_list) >= len(self.potential_players) * NEXT_QUORUM_FACTOR:
@@ -179,6 +180,7 @@ class Game:
                     f"Passe. Le mot était ***{current_word}*** \n"
                     f"Prochain mot dans 5 secondes ..."
                 )
+                wikidict.exclude(current_word)
                 await self.new_word()
             else:
                 await self.channel.send(
@@ -210,8 +212,7 @@ async def on_ready():
         print(f"{guild.name}(id: {guild.id})")
 
     await client.change_presence(
-        activity=discord.Game(f"élargir ton français"),
-        status=discord.Status.online
+        activity=discord.Game(f"élargir ton français"), status=discord.Status.online
     )
 
 
@@ -225,16 +226,16 @@ async def on_message(message):
     if client.user in message.mentions and "leaderboard" in message.content:
         global_scores = scores.get_scores(key)
         if global_scores is None:
-            await message.channel.send(
-                "Aucune partie enregistrée sur ce salon"
-            )
+            await message.channel.send("Aucune partie enregistrée sur ce salon")
         else:
             await message.channel.send(
                 "Les scores de tout temps sur ce salon : \n" + global_scores
             )
     elif key not in GAMES or GAMES[key].finished:  # aucune partie ici
         if client.user in message.mentions and message.content.find("play") != -1:
-            game = Game(key, message.channel, try_parsing_game_parameters(message.content))
+            game = Game(
+                key, message.channel, try_parsing_game_parameters(message.content)
+            )
             GAMES[key] = game
             await game.start()
     else:  # partie en cours
