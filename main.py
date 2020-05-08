@@ -78,6 +78,7 @@ async def display_help(message):
     `leaderboard` : affiche le total des scores du canal
     `help` : affiche cet aide
 Commandes disponibles en jeu :
+    `next` : vote pour passer au mot suivant
     `stahp` : arrête la partie
     `bug` : émet un rapport de bug pour le mot courant. Mes esclaves règlerons ensuite le problème.
     """
