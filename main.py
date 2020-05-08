@@ -16,13 +16,13 @@ import scores
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-GLOBAL_TIME_LIMIT = 600
+GLOBAL_TIME_LIMIT = 900
 WORD_TIME_LIMIT = 50
 WORD_COUNT_LIMIT = 20
 TIME_PER_HINT = 10
 PERCENT_PER_HINT = 0.2  # percent of word to reveal every TIME_PER_HINT seconds
 TOTAL_HINT_PERCENT = 0.6
-POINTS_LIMIT = 30
+POINTS_LIMIT = 40
 NEXT_QUORUM_FACTOR = 0.5  # percent of players
 
 
@@ -84,6 +84,16 @@ Commandes disponibles en jeu :
     """
     await message.channel.send(helpstr)
 
+def human_readable_seconds(seconds):
+    minutes = math.floor(seconds/60)
+    seconds = seconds%60
+    out = ''
+    if minutes:
+        out += f"{minutes} min "
+    if seconds:
+        out += f"{seconds} sec"
+    return out
+
 class Game:
     def __init__(self, key: str, channel: discord.TextChannel, limits):
         self.key = key
@@ -104,7 +114,7 @@ class Game:
     async def start(self):
         await self.channel.send(
             f"C'est parti ! Règles du jeu : je vous donne une définition, vous devez trouver le mot associé.\n"
-            f"Limite de temps : {self.limits['time_limit']}\n"
+            f"Limite de temps : {human_readable_seconds(self.limits['time_limit'])}\n"
             f"Limite de points: {self.limits['points_limit']}\n"
             f"Début du jeu dans 5 secondes..."
         )
@@ -173,6 +183,12 @@ class Game:
             await self.channel.send(
                 f"{player_id} gagne sur ***{current_word}***.\n"
                 f"Limite de score atteinte !"
+            )
+            await self.finish()
+        elif time.time() - self.game_start_time > self.limits['time_limit']:
+            await self.channel.send(
+                f"{player_id} gagne sur ***{current_word}***.\n"
+                f"Limite de temps atteinte !"
             )
             await self.finish()
         else:
