@@ -70,6 +70,18 @@ def get_score_string(game_scores):
         [player + " : " + str(game_scores[player]) for player in sorted_keys]
     )
 
+async def display_help(message):
+    helpstr = """
+    Commandes disponibles hors jeu :
+    `play` : lance une partie
+    `play N minutes M points` : lance une partie en N minutes ou M points
+    `leaderboard` : affiche le total des scores du canal
+    `help` : affiche cet aide
+Commandes disponibles en jeu :
+    `stahp` : arrête la partie
+    `bug` : émet un rapport de bug pour le mot courant. Mes esclaves règlerons ensuite le problème.
+    """
+    await message.channel.send(helpstr)
 
 class Game:
     def __init__(self, key: str, channel: discord.TextChannel, limits):
@@ -231,6 +243,8 @@ async def on_message(message):
             await message.channel.send(
                 "Les scores de tout temps sur ce salon : \n" + global_scores
             )
+    elif client.user in message.mentions and "help" in message.content:
+        await display_help(message)
     elif key not in GAMES or GAMES[key].finished:  # aucune partie ici
         if client.user in message.mentions and message.content.find("play") != -1:
             game = Game(
