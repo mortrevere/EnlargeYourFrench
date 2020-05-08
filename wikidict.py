@@ -77,6 +77,11 @@ def create_list_file(lang):
         print()
 
 
+def bug_report(word, info):
+    print(f"A bug was reported : {word}\n{info}")
+    with open("data/bug_reports.txt", mode="a", encoding="utf8") as f:
+        f.write(f">{word}<\n{info}\n")
+
 def load_excluded(lang):
     if not os.path.exists(WIKIS[lang].exclude_file):
         return []
@@ -145,6 +150,8 @@ def render_wikitext(wikitext):
             templates += [f"({content.capitalize()})"]
         elif len(tmpl.arguments) and tmpl.name == "w":
             templates += [str(tmpl.arguments[0])[1:]]
+        elif content == 'variante de' and tmpl.arguments[-1].value == 'fr':
+            templates += [f"Variante de {tmpl.arguments[0].value}"]
         else:
             templates += [content]
 

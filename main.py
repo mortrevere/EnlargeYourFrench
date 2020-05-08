@@ -242,6 +242,10 @@ async def on_message(message):
         game = GAMES[key]
         if client.user in message.mentions and "stahp" in message.content:
             await game.finish()
+        elif client.user in message.mentions and "bug" in message.content:
+            wikidict.bug_report(game.word, message.content)
+            await message.channel.send(f"Rapport de bug enregistré pour {game.word}.\nProchain mot dans 5 secondes ...")
+            await game.new_word()
         elif game.word is not None:
             game.potential(message.author.mention)
             if message.content.lower().strip() == "next":
@@ -258,3 +262,4 @@ while True:
         break  # clean kill
     except Exception as e:
         print(e, file=sys.stderr)
+        time.sleep(2)
