@@ -148,7 +148,7 @@ def render_wikitext(wikitext):
             len(tmpl.arguments) == 0 and len(tmpl.name) > 3
         ):
             templates += [f"({content.capitalize()})"]
-        elif len(tmpl.arguments) and tmpl.name == "w":
+        elif len(tmpl.arguments) and tmpl.name in ("w","lien"):
             templates += [str(tmpl.arguments[0])[1:]]
         elif content == 'variante de' and tmpl.arguments[-1].value == 'fr':
             templates += [f"Variante de {tmpl.arguments[0].value}"]
