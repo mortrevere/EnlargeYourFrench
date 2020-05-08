@@ -1,7 +1,7 @@
 import os.path as path
 
 GLOBAL_SCORES = {}
-SCORES_FILE = "high_scores.txt"
+SCORES_FILE = "data/high_scores.txt"
 
 
 def load():
@@ -50,7 +50,12 @@ def get_scores(channel):
     else:
         scores = GLOBAL_SCORES[channel]
         sorted_keys = sorted(scores.keys(), key=lambda k: scores[k][0], reverse=True)
-        return "\n".join([f"{player} : {scores[player][0]} ({scores[player][1]} partie{'s' if scores[player][1] > 1 else ''})" for player in sorted_keys])
+        return "\n".join(
+            [
+                f"{player} : {scores[player][0]} ({scores[player][1]} partie{'s' if scores[player][1] > 1 else ''})"
+                for player in sorted_keys
+            ]
+        )
 
 
 load()
