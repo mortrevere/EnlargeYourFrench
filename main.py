@@ -115,17 +115,21 @@ class Game:
         await self.channel.send(
             f"C'est parti ! Règles du jeu : je vous donne une définition, vous devez trouver le mot associé.\n"
             f"Limite de temps : {human_readable_seconds(self.limits['time_limit'])}\n"
-            f"Limite de points: {self.limits['points_limit']}\n"
-            f"Début du jeu dans 5 secondes..."
+            f"Limite de points: {self.limits['points_limit']}"
         )
         await self.new_word()
 
     async def new_word(self):
         self.stop_sleep()
+        if time.time() - self.game_start_time > self.limits['time_limit']:
+            await self.channel.send(
+                f"Limite de temps atteinte !"
+            )
+            await self.finish()
         while True:
             self.word = None
             self.next_list = []
-
+            await self.channel.send("Prochain mot dans 5 secondes ...")
             async with self.channel.typing():
                 await self.sleep(5)
 
@@ -160,7 +164,6 @@ class Game:
             self.word = None
             await self.channel.send(
                 f"Personne n'a trouvé, le mot était: ***{current_word}***\n"
-                f"Prochain mot dans 5 secondes..."
             )
 
     async def sleep(self, seconds):
@@ -185,16 +188,9 @@ class Game:
                 f"Limite de score atteinte !"
             )
             await self.finish()
-        elif time.time() - self.game_start_time > self.limits['time_limit']:
-            await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
-                f"Limite de temps atteinte !"
-            )
-            await self.finish()
         else:
             await self.channel.send(
                 f"{player_id} gagne sur ***{current_word}***.\n"
-                f"Prochain mot dans 5 secondes ..."
             )
             await self.new_word()
 
@@ -207,7 +203,6 @@ class Game:
                 self.word = None
                 await self.channel.send(
                     f"Passe. Le mot était ***{current_word}*** \n"
-                    f"Prochain mot dans 5 secondes ..."
                 )
                 wikidict.exclude(current_word)
                 await self.new_word()
@@ -275,7 +270,7 @@ async def on_message(message):
             await game.finish()
         elif client.user in message.mentions and "bug" in message.content:
             wikidict.bug_report(game.word, message.content)
-            await message.channel.send(f"Rapport de bug enregistré pour {game.word}.\nProchain mot dans 5 secondes ...")
+            await message.channel.send(f"Rapport de bug enregistré pour {game.word}.")
             await game.new_word()
         elif game.word is not None:
             game.potential(message.author.mention)
