@@ -167,7 +167,7 @@ def render_wikitext(wikitext):
 
     # return rendered text, adapted to markdown
     return (
-        "`➥"
+        "➥ `"
         + remove_ref("".join(chunks_out).replace("'''", "**").replace("''", "*")[2:])
         + "`"
     )
