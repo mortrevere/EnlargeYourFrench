@@ -112,6 +112,8 @@ class Game:
         self.limits = limits
 
     async def start(self):
+        n = len([g for g in GAMES.values() if not g.finished])
+        print(f'New game on "{self.channel.guild}" ({n} running)')
         await self.channel.send(
             f"C'est parti ! Règles du jeu : je vous donne une définition, vous devez trouver le mot associé.\n"
             f"Limite de temps : {human_readable_seconds(self.limits['time_limit'])}\n"
@@ -227,6 +229,10 @@ class Game:
             "C'est fini, scores : \n" + get_score_string(self.scores)
         )
         scores.update(self.key, self.scores)
+        n = len([g for g in GAMES.values() if not g.finished])
+        print(f'Game finished on "{self.channel.guild}" ({n} running)')
+        if n == 0: #all games finished
+            print("All games are done.")
 
 
 @client.event
