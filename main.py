@@ -67,7 +67,7 @@ def add_hint(current_hint, word):
 def get_score_string(game_scores):
     sorted_keys = sorted(game_scores.keys(), key=lambda k: game_scores[k], reverse=True)
     return "\n".join(
-        [player + " : " + str(game_scores[player]) for player in sorted_keys]
+        [f"<@{player}> : {game_scores[player]}" for player in sorted_keys]
     )
 
 async def display_help(message):
@@ -180,29 +180,29 @@ class Game:
         if self.coroutine is not None and not self.coroutine.done():
             self.coroutine.cancel()
 
-    async def found(self, player_id):
+    async def found(self, user):
         current_word = self.word
         self.word = None
-        if player_id in self.scores:
-            self.scores[player_id] += self.current_hint.count("_")
+        if user.id in self.scores:
+            self.scores[user.id] += self.current_hint.count("_")
         else:
-            self.scores[player_id] = self.current_hint.count("_")
+            self.scores[user.id] = self.current_hint.count("_")
 
-        if self.scores[player_id] >= self.limits["points_limit"]:
+        if self.scores[user.id] >= self.limits["points_limit"]:
             await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
+                f"{user.mention} gagne sur ***{current_word}***.\n"
                 f"Limite de score atteinte !"
             )
             await self.finish()
         else:
             await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
+                f"{user.mention} gagne sur ***{current_word}***.\n"
             )
             await self.new_word()
 
-    async def next(self, player_id):
-        if self.word is not None and player_id not in self.next_list:
-            self.next_list += [player_id]
+    async def next(self, user):
+        if self.word is not None and user.id not in self.next_list:
+            self.next_list += [user.id]
 
             if len(self.next_list) >= len(self.potential_players) * NEXT_QUORUM_FACTOR:
                 current_word = self.word
@@ -217,12 +217,12 @@ class Game:
                     f"Passe ({len(self.next_list)}/{math.ceil(len(self.potential_players) * NEXT_QUORUM_FACTOR)})"
                 )
 
-    async def soclose(self, player_id):
-        await self.channel.send(f"{player_id} est très proche !")
+    async def soclose(self, user):
+        await self.channel.send(f"{user.mention} est très proche !")
 
-    def potential(self, player_id):
-        if player_id not in self.potential_players:
-            self.potential_players += [player_id]
+    def potential(self, user):
+        if user.id not in self.potential_players:
+            self.potential_players += [user.id]
 
     async def finish(self):
         self.stop_sleep()
@@ -283,13 +283,13 @@ async def on_message(message):
                 wikidict.bug_report(game.word, message.content)
                 await message.channel.send(f"Rapport de bug enregistré pour {game.word}.")
                 await game.new_word()
-            game.potential(message.author.mention)
+            game.potential(message.author)
             if message.content.lower().strip() == "next":
-                await game.next(message.author.mention)
+                await game.next(message.author)
             elif message.content.lower().strip() == game.word:
-                await game.found(message.author.mention)
+                await game.found(message.author)
             elif distance(message.content.lower().strip(), game.word) < 3:
-                await game.soclose(message.author.mention)
+                await game.soclose(message.author)
 
 
 while True:
