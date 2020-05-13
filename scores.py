@@ -16,11 +16,12 @@ def load():
                 channel = line[0]
                 player = re.sub(r'<@!?([^>]+)>', r'\1', line[1]).strip()
                 try:
+                    player = int(player)
                     score = int(line[2])
                     games = int(line[3])
                     update_player(channel, player, score, games)
                 except ValueError:
-                    print(f'Invalid score: "{line[2]}" / "{line[3]}"')
+                    print(f'Invalid line: "{player}" / "{line[2]}" / "{line[3]}"')
                     pass
 
 
