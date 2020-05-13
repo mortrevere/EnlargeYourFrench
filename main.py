@@ -143,8 +143,12 @@ class Game:
             self.current_hint = "".join(
                 ["_" if l in string.ascii_lowercase else l for l in current_word]
             )
+            indication = f"{len(self.word)} lettres"
+            number_of_words = self.word.count(" ") + self.word.count("-") + 1
+            if number_of_words > 1:
+                indication += f", {number_of_words} mots"
             await self.channel.send(
-                "{} lettres :\n{}".format(len(self.word), self.definition)
+                f"{indication} : \n{self.definition}"
             )
             max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
 
