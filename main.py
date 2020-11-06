@@ -1,21 +1,20 @@
 import random
-import re
-import sys
 import discord
 import time
 import asyncio
 import math
-import os
 import string
+import logging
 from Levenshtein import distance
 from typing import List, Tuple, Optional
-from dotenv import load_dotenv
+from miniscord import Bot, channel_id
 
 import wikidict
 import scores
 
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+
+logging.basicConfig(format="[%(asctime)s][%(levelname)s][%(module)s] %(message)s", level=logging.INFO)
+
 GLOBAL_TIME_LIMIT = 900
 WORD_TIME_LIMIT = 50
 WORD_COUNT_LIMIT = 20
@@ -27,8 +26,6 @@ NEXT_QUORUM_FACTOR = 0.5  # percent of players
 
 
 GAMES = {}
-
-client = discord.Client()
 
 
 def try_parsing_game_parameters(message):
@@ -60,7 +57,7 @@ def add_hint(current_hint, word):
         j = 0
         while current_hint[j] != "_":
             j = random.randint(0, len(word) - 1)
-        current_hint = current_hint[:j] + word[j] + current_hint[j + 1 :]
+        current_hint = current_hint[:j] + word[j] + current_hint[j + 1:]
     return current_hint
 
 
@@ -70,7 +67,8 @@ def get_score_string(game_scores):
         [player + " : " + str(game_scores[player]) for player in sorted_keys]
     )
 
-async def display_help(message):
+
+async def display_help(client: discord.client, message: discord.Message, *args: str):
     helpstr = """
     Commandes disponibles hors jeu :
     `play` : lance une partie
@@ -84,15 +82,17 @@ Commandes disponibles en jeu :
     """
     await message.channel.send(helpstr)
 
+
 def human_readable_seconds(seconds):
     minutes = math.floor(seconds/60)
-    seconds = seconds%60
+    seconds = seconds % 60
     out = ''
     if minutes:
         out += f"{minutes} min "
     if seconds:
         out += f"{seconds} sec"
     return out
+
 
 class Game:
     def __init__(self, key: str, channel: discord.TextChannel, limits):
@@ -124,9 +124,7 @@ class Game:
     async def new_word(self):
         self.stop_sleep()
         if time.time() - self.game_start_time > self.limits['time_limit']:
-            await self.channel.send(
-                f"Limite de temps atteinte !"
-            )
+            await self.channel.send("Limite de temps atteinte !")
             await self.finish()
         while True:
             self.word = None
@@ -235,67 +233,69 @@ class Game:
         scores.update(self.key, self.scores)
         n = len([g for g in GAMES.values() if not g.finished])
         print(f'Game finished on "{self.channel.guild}" ({n} running)')
-        if n == 0: #all games finished
+        if n == 0:  # all games finished
             print("All games are done.")
 
 
-@client.event
-async def on_ready():
-    print(f"{client.user} is connected to the following guild:\n")
-    for guild in client.guilds:
-        print(f"{guild.name}(id: {guild.id})")
-
-    await client.change_presence(
-        activity=discord.Game(f"élargir ton français"), status=discord.Status.online
-    )
-
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-    if client.user in message.mentions:
-        pass
-    key = f"{message.guild.id}/{message.channel.id}"
-    if client.user in message.mentions and "leaderboard" in message.content:
-        global_scores = scores.get_scores(key)
+async def mention(client: discord.client, message: discord.Message, *args: str):
+    chid = channel_id(message)
+    game_running = channel_id in GAMES and not GAMES[chid].finished
+    if "help" in message.content:
+        await display_help(client, message)
+    elif "leaderboard" in message.content:
+        global_scores = scores.get_scores(chid)
         if global_scores is None:
             await message.channel.send("Aucune partie enregistrée sur ce salon")
         else:
             await message.channel.send(
                 "Les scores de tout temps sur ce salon : \n" + global_scores
             )
-    elif client.user in message.mentions and "help" in message.content:
-        await display_help(message)
-    elif key not in GAMES or GAMES[key].finished:  # aucune partie ici
-        if client.user in message.mentions and message.content.find("play") != -1:
+    elif "stahp" in message.content and game_running:
+        await GAMES[chid].finish()
+    elif not game_running:
+        lets_play = False
+        for word in ["play", "game", "jeu", "jouer", "partie"]:
+            if word in message.content:
+                lets_play = True
+                break
+        if lets_play:
             game = Game(
-                key, message.channel, try_parsing_game_parameters(message.content)
+                chid, message.channel, try_parsing_game_parameters(message.content)
             )
-            GAMES[key] = game
+            GAMES[chid] = game
             await game.start()
-    else:  # partie en cours
-        game = GAMES[key]
-        if client.user in message.mentions and "stahp" in message.content:
-            await game.finish()
-        elif game.word is not None:
-            if client.user in message.mentions and "bug" in message.content:
-                wikidict.bug_report(game.word, message.content)
-                await message.channel.send(f"Rapport de bug enregistré pour {game.word}.")
-                await game.new_word()
-            game.potential(message.author.mention)
-            if message.content.lower().strip() == "next":
-                await game.next(message.author.mention)
-            elif message.content.lower().strip() == game.word:
-                await game.found(message.author.mention)
-            elif distance(message.content.lower().strip(), game.word) < 3:
-                await game.soclose(message.author.mention)
 
 
-while True:
-    try:
-        client.run(TOKEN)
-        break  # clean kill
-    except Exception as e:
-        print(e, file=sys.stderr)
-        time.sleep(2)
+async def message(client: discord.client, message: discord.Message):
+    chid = channel_id(message)
+    if channel_id in GAMES and not GAMES[chid].finished and GAMES[chid] is not None:  # partie en cours
+        game = GAMES[chid]
+        if client.user in message.mentions and "bug" in message.content:
+            wikidict.bug_report(game.word, message.content)
+            await message.channel.send(f"Rapport de bug enregistré pour {game.word}.")
+            await game.new_word()
+        game.potential(message.author.mention)
+        if message.content.lower().strip() == "next":
+            await game.next(message.author.mention)
+        elif message.content.lower().strip() == game.word:
+            await game.found(message.author.mention)
+        elif distance(message.content.lower().strip(), game.word) < 3:
+            await game.soclose(message.author.mention)
+
+
+bot = Bot(
+    "Enlarge Your French",  # name
+    "1.0",  # version
+)
+
+bot.games += "élargir ton français"
+bot.games += [lambda:f"{len(GAMES)} games"]
+
+bot.any_mention = True
+bot.log_calls = True  # TODO debug
+
+bot.register_command("help", display_help, "", "")
+bot.register_fallback(mention)
+bot.register_watcher(message)
+
+bot.start()
