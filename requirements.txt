@@ -3,3 +3,4 @@ python-dotenv
 python-Levenshtein
 wikitextparser
 requests
+git+git://github.com/Klemek/miniscord.git
