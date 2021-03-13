@@ -21,6 +21,8 @@ class ScoreHandler():
 
     def update(self, channel, game_scores): # channel is a unique str id, game_score is dict player_id (int) -> score (int)
         # find maximum score, this player will get 1 point added to its win rate
+        if not len(game_scores.values()):
+            return
         max_score = max(game_scores.values())
         print("max score is", max_score)
 
