@@ -1,66 +1,57 @@
 import os.path as path
 import re
+import json
 
 GLOBAL_SCORES = {}
-SCORES_FILE = "data/high_scores.txt"
+SCORES_FILE = "data/high_scores.json"
 
+class Player:
+    _id = ""
+    _score = 0
+    _games = 0
+    _win_rate = 0.0
 
-def load():
-    GLOBAL_SCORES.clear()
-    if not path.exists(SCORES_FILE):
-        return
-    with open(SCORES_FILE, mode="r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip().split(";")
-            if len(line) >= 4:
-                channel = line[0]
-                player = re.sub(r'<@!?([^>]+)>', r'\1', line[1]).strip()
-                try:
-                    player = int(player)
-                    score = int(line[2])
-                    games = int(line[3])
-                    update_player(channel, player, score, games)
-                except ValueError:
-                    print(f'Invalid line: "{player}" / "{line[2]}" / "{line[3]}"')
-                    pass
+class ScoreHandler():
+    def __init__(self):
+        self.GLOBAL_SCORES = {}
+        self.GLOBAL_SCORES.clear()
+        if not path.exists(SCORES_FILE):
+            return
+        with open(SCORES_FILE, mode="r", encoding="utf-8") as f:
+            self.GLOBAL_SCORES = json.load(f)
+        print(self.GLOBAL_SCORES)
 
+    def save(self):
+        with open(SCORES_FILE, mode="w", encoding="utf-8") as f:
+            f.write(json.dumps(self.GLOBAL_SCORES))
 
-def save():
-    with open(SCORES_FILE, mode="w", encoding="utf-8") as f:
-        for channel in GLOBAL_SCORES:
-            for player in GLOBAL_SCORES[channel]:
-                score = GLOBAL_SCORES[channel][player]
-                f.write(f"{channel};{player};{score[0]};{score[1]}\n")
+    def update(self, channel, game_scores): # channel is a unique str id, game_score is dict player_id (int) -> score (int)
+        # find maximum score, this player will get 1 point added to its win rate
+        max_score = max(game_scores.values())
+        print("max score is", max_score)
 
+        self.GLOBAL_SCORES.setdefault(channel, {})
+        for player in game_scores:
+            game_performance = game_scores[player]/max_score # 1 for the best player, proportionaly less for the others, always in [0,1]
 
-def update_player(channel, player, new_score, games=1):
-    if channel not in GLOBAL_SCORES:
-        GLOBAL_SCORES[channel] = {}
-    if player not in GLOBAL_SCORES[channel]:
-        score = (0, 0)
-    else:
-        score = GLOBAL_SCORES[channel][player]
-    GLOBAL_SCORES[channel][player] = (score[0] + new_score, score[1] + games)
+            self.GLOBAL_SCORES[channel].setdefault(player, {"total_points": 0, "games_played": 0, "win_rate": 0})
+            self.GLOBAL_SCORES[channel][player]["total_points"] += game_scores[player]
+            self.GLOBAL_SCORES[channel][player]["games_played"] += 1
+            self.GLOBAL_SCORES[channel][player]["win_rate"] = self.GLOBAL_SCORES[channel][player]["win_rate"]*(self.GLOBAL_SCORES[channel][player]["games_played"]-1) + game_performance
+        self.save()
 
+    def get_scores(self, channel):
+        scores = self.GLOBAL_SCORES.get(channel)
+        if not scores:
+            return None
 
-def update(channel, game_scores):
-    for player in game_scores:
-        update_player(channel, player, game_scores[player])
-    save()
+        print(scores)
 
-
-def get_scores(channel):
-    if channel not in GLOBAL_SCORES:
-        return None
-    else:
-        scores = GLOBAL_SCORES[channel]
-        sorted_keys = sorted(scores.keys(), key=lambda k: scores[k][0], reverse=True)
+        sorted_keys = sorted(scores.keys(), key=lambda k: scores[k]["win_rate"], reverse=True)
+        print(sorted_keys)
         return "\n".join(
             [
-                f"<@{player}> : {scores[player][0]} ({scores[player][1]} partie{'s' if scores[player][1] > 1 else ''})"
+                f'<@{player}> : {scores[player]["total_points"]} ({scores[player]["games_played"]} partie{"s" if scores[player]["games_played"] > 1 else ""} : {round(scores[player]["win_rate"]*100,1)} % de victoire)'
                 for player in sorted_keys
             ]
         )
-
-
-load()

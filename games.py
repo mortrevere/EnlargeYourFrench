@@ -24,6 +24,9 @@ NEXT_QUORUM_FACTOR = 0.5  # percent of players
 GAMES = {}
 
 
+SCORE_HANDLER = scores.ScoreHandler()
+
+
 def get_game(key):
     return GAMES[key]
 
@@ -41,7 +44,7 @@ async def new_game(key, message):
 
 
 def get_scores(key):
-    global_scores = scores.get_scores(key)
+    global_scores = SCORE_HANDLER.get_scores(key)
     if global_scores is None:
         return "Aucune partie enregistrée sur ce salon"
     else:
@@ -250,7 +253,7 @@ class Game:
         await self.channel.send(
             "C'est fini, scores : \n" + get_score_string(self.scores)
         )
-        scores.update(self.key, self.scores)
+        SCORE_HANDLER.update(self.key, self.scores)
         n = len([g for g in GAMES.values() if not g.finished])
         print(f'Game finished on "{self.channel.guild}" ({n} running)')
         if n == 0:  # all games finished
