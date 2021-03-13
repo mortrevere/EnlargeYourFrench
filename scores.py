@@ -25,8 +25,10 @@ class ScoreHandler():
         print("max score is", max_score)
 
         self.GLOBAL_SCORES.setdefault(channel, {})
+        clean_game_score = {}
         for k, v in game_scores.items():
-            game_scores[str(k)] = game_scores[k]
+            clean_game_scores[str(k)] = game_scores[k]
+        game_scores = clean_game_score
         for player in game_scores:
             player = str(player)
             game_performance = game_scores[player]/max_score # 1 for the best player, proportionaly less for the others, always in [0,1]
