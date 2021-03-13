@@ -5,12 +5,6 @@ import json
 GLOBAL_SCORES = {}
 SCORES_FILE = "data/high_scores.json"
 
-class Player:
-    _id = ""
-    _score = 0
-    _games = 0
-    _win_rate = 0.0
-
 class ScoreHandler():
     def __init__(self):
         self.GLOBAL_SCORES = {}
@@ -32,6 +26,7 @@ class ScoreHandler():
 
         self.GLOBAL_SCORES.setdefault(channel, {})
         for player in game_scores:
+            player = str(player)
             game_performance = game_scores[player]/max_score # 1 for the best player, proportionaly less for the others, always in [0,1]
 
             self.GLOBAL_SCORES[channel].setdefault(player, {"total_points": 0, "games_played": 0, "win_rate": 0})
