@@ -208,7 +208,7 @@ class Game:
 
         if self.scores[player_id] >= self.limits["points_limit"]:
             await self.channel.send(
-                f"<@{player_id}> gagne sur ***{current_word}***.\n"
+                f"<@{player_id}> gagne {self.current_hint.count('_')} points sur ***{current_word}***.\n"
                 f"Limite de score atteinte !"
             )
             await self.finish()
