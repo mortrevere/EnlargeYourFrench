@@ -84,7 +84,7 @@ def add_hint(current_hint, word):
 def get_score_string(game_scores):
     sorted_keys = sorted(game_scores.keys(), key=lambda k: game_scores[k], reverse=True)
     return "\n".join(
-        [player + " : " + str(game_scores[player]) for player in sorted_keys]
+        ["<@" + player + "> : " + str(game_scores[player]) for player in sorted_keys]
     )
 
 
