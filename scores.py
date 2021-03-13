@@ -36,7 +36,7 @@ class ScoreHandler():
             self.GLOBAL_SCORES[channel].setdefault(player, {"total_points": 0, "games_played": 0, "win_rate": 0})
             self.GLOBAL_SCORES[channel][player]["total_points"] += game_scores[player]
             self.GLOBAL_SCORES[channel][player]["games_played"] += 1
-            self.GLOBAL_SCORES[channel][player]["win_rate"] = (self.GLOBAL_SCORES[channel][player]["win_rate"]*(self.GLOBAL_SCORES[channel][player]["games_played"]-1) + game_performance)/2
+            self.GLOBAL_SCORES[channel][player]["win_rate"] = (self.GLOBAL_SCORES[channel][player]["win_rate"]*(self.GLOBAL_SCORES[channel][player]["games_played"]-1) + game_performance)/self.GLOBAL_SCORES[channel][player]["games_played"]
         self.save()
 
     def get_scores(self, channel):
