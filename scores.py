@@ -25,7 +25,7 @@ class ScoreHandler():
         print("max score is", max_score)
 
         self.GLOBAL_SCORES.setdefault(channel, {})
-        clean_game_score = {}
+        clean_game_scores = {}
         for k, v in game_scores.items():
             clean_game_scores[str(k)] = game_scores[k]
         game_scores = clean_game_score
