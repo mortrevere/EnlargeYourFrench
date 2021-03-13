@@ -49,7 +49,7 @@ async def mention(client: discord.client, message: discord.Message, *args: str):
 async def message(client: discord.client, message: discord.Message):
     chid = channel_id(message)
     if games.has_unfinished_game(chid):  # partie en cours
-        await games.get_game(chid).handle_response(message.author.id, message.content.lower().strip())
+        await games.get_game(chid).handle_response(str(message.author.id), message.content.lower().strip())
 
 
 bot = Bot(
