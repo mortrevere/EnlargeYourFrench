@@ -208,13 +208,13 @@ class Game:
 
         if self.scores[player_id] >= self.limits["points_limit"]:
             await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
+                f"<@{player_id}> gagne {self.current_hint.count('_')} points sur ***{current_word}***.\n"
                 f"Limite de score atteinte !"
             )
             await self.finish()
         else:
             await self.channel.send(
-                f"{player_id} gagne sur ***{current_word}***.\n"
+                f"<@{player_id}> gagne {self.current_hint.count('_')} points sur ***{current_word}***.\n"
             )
             await self.new_word()
 
@@ -236,7 +236,7 @@ class Game:
                 )
 
     async def soclose(self, player_id):
-        await self.channel.send(f"{player_id} est très proche !")
+        await self.channel.send(f"<@{player_id}> est très proche !")
 
     def potential(self, player_id):
         if player_id not in self.potential_players:
