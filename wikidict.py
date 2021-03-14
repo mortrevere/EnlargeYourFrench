@@ -160,7 +160,7 @@ def render_wikitext(wikitext):
     )
     chunks_out = []
     for chunk in chunks:
-        if re.match("\{\{.*\}\}", chunk):
+        if re.match("\{\{.*\}\}", chunk) and len(templates) > 0:
             chunks_out += [templates.pop(0)]
         else:
             chunks_out += [chunk]
