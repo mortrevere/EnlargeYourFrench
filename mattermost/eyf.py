@@ -31,7 +31,7 @@ class EnlargeYourFrench(Plugin):
 
     # Listen to all messages
     @listen_to(".*")
-    def message(self, message):
+    def handle_message(self, message):
         logger.debug(f"Got message, passing to engine: [{message.text}, {message.mentions}]")
         if message.mentions:
             self.engine.handle_mention(

@@ -1,16 +1,19 @@
-import random
-import time
-import math
-import string
-from Levenshtein import distance
-from typing import List, Tuple, Optional
-import inspect
-import scores
-from loguru import logger
 import os
-from wikidict import Wikidict
+import inspect
+import math
+import random
+import string
 import threading
+import time
+from typing import List, Tuple, Optional
 
+from Levenshtein import distance
+from loguru import logger
+from wikidict import Wikidict
+
+import scores
+
+# Constants
 GLOBAL_TIME_LIMIT = 900
 WORD_TIME_LIMIT = 50
 WORD_COUNT_LIMIT = 20
@@ -20,15 +23,13 @@ TOTAL_HINT_PERCENT = 0.6
 POINTS_LIMIT = 40
 NEXT_QUORUM_FACTOR = 0.5  # percent of players
 
-
-
 class EYFEngine:
     def __init__(self, backend, name=None, version=None):
         self.GAMES = {}
         self.GAMES_THREADS = {}
         self.SCORE_HANDLER = scores.ScoreHandler()
-        self.name = os.getenv("GAME_NAME", name if name is not None else "EnlargeYourFrench")
-        self.version = os.getenv("GAME_VERSION", version if version is not None else "2.0")
+        self.name = os.getenv("GAME_NAME", name if name else "EnlargeYourFrench")
+        self.version = os.getenv("GAME_VERSION", version if version else "2.0")
         self.backend = backend
         self.wikidict = Wikidict()
 
@@ -37,12 +38,10 @@ class EYFEngine:
         self.wikidict._dump_state()
 
     def _check_backend(self):
-        for method in ("reply_to", "post_general", "post_in"):
-            if not hasattr(self.backend, method) or not callable(getattr(self.backend, method)):
+        required_methods = ("reply_to", "post_general", "post_in")
+        for method in required_methods:
+            if not callable(getattr(self.backend, method, None)):
                 raise Exception("Backend is not implementing enough methods to be valid, check the doc")
-        # for attribute in ("channel_id",):
-        #     if not hasattr(self.backend, attribute) or callable(getattr(self.backend, attribute)):
-        #         raise Exception("Backend is not implementing enough attributes to be valid, check the doc")
 
     def start(self):
         self._check_backend()
@@ -50,9 +49,8 @@ class EYFEngine:
 
     def _get_game(self):
         stack = inspect.stack()
-        the_class = stack[2][0].f_locals["self"] #__class__ #.__name__
-        the_method = stack[2][0].f_code.co_name
-        return self.GAMES[stack[2][0].f_locals["self"].key]
+        caller = stack[2][0]
+        return self.GAMES[caller.f_locals["self"].key]
 
     def game_post(self, text):
         game = self._get_game()
@@ -65,24 +63,25 @@ class EYFEngine:
         return key in self.GAMES and not self.GAMES[key].finished
 
     def new_game(self, text, channel_id):
-        game = Game(
-            self, channel_id, channel_id, self.try_parsing_game_parameters(text)
-        )
+        logger.warning("game starting ...")
+        game = Game(self, channel_id, channel_id, self.try_parsing_game_parameters(text))
         self.GAMES[channel_id] = game
         self.GAMES_THREADS[channel_id] = threading.Thread(target=game.start)
         self.GAMES_THREADS[channel_id].start()
+        logger.warning("game started")
 
     def get_scores(self, key):
         global_scores = self.SCORE_HANDLER.get_scores(key)
         if global_scores is None:
             return "Aucune partie enregistrée sur ce salon"
-        else:
-            return "Les scores de tout temps sur ce salon : \n" + global_scores
+        return f"Les scores de tout temps sur ce salon : \n{global_scores}"
 
     @staticmethod
     def try_parsing_game_parameters(message):
         chunks = message.split(" ")
-        time_limit, points_limit = GLOBAL_TIME_LIMIT, POINTS_LIMIT
+        time_limit = GLOBAL_TIME_LIMIT
+        points_limit = POINTS_LIMIT
+
         try:
             i = chunks.index("minutes")
             if i - 1 >= 0 and chunks[i - 1].isdigit():
@@ -116,8 +115,8 @@ class EYFEngine:
 
     @staticmethod
     def human_readable_seconds(seconds):
-        minutes = math.floor(seconds / 60)
-        seconds = seconds % 60
+        minutes = seconds // 60
+        seconds %= 60
         result = ""
         if minutes:
             result += f"{minutes} min "
@@ -127,7 +126,7 @@ class EYFEngine:
 
     @staticmethod
     def help():
-        help_text = """
+        return """
         Commandes disponibles hors jeu:
         'play' : lance une partie
         'play N minutes M points' : lance une partie en N minutes ou M points
@@ -138,11 +137,6 @@ class EYFEngine:
         'stahp' : arrête la partie
         'bug' : émet un rapport de bug pour le mot courant. Mes esclaves règlerons ensuite le problème.
         """
-        return help_text
-
-    #=================================
-    # methods called by backend
-    #=================================
 
     def handle_mention(self, text, channel_id, _message):
         logger.debug("Handling mention ...")
@@ -156,20 +150,21 @@ class EYFEngine:
             elif "bug" in text:
                 self.get_game(channel_id).report_bug(_message)
         else:
-            logger.debug(f"Got play request: {_message}")
-            lets_play = any(word in text for word in ["play", "game", "jeu", "jouer", "partie"])
-            if self.has_unfinished_game(channel_id):
-                self.backend.reply_to(_message, "Une partie est déjà en cours, allez jouer avec eux plutôt")
-                return
-            if lets_play:
-                self.new_game(text, channel_id)
+            self._handle_play_request(text, channel_id, _message)
+
+    def _handle_play_request(self, text, channel_id, _message):
+        logger.debug(f"Got play request: {_message}")
+        lets_play = any(word in text for word in ["play", "game", "jeu", "jouer", "partie"])
+        if self.has_unfinished_game(channel_id):
+            self.backend.reply_to(_message, "Une partie est déjà en cours, allez jouer avec eux plutôt")
+            return
+        if lets_play:
+            self.new_game(text, channel_id)
 
     def handle_message(self, text, channel_id, author_id, _message):
         logger.debug(f"Handling message [{text=}]")
         if self.has_unfinished_game(channel_id):
             self.get_game(channel_id).handle_response(author_id, text.lower().strip())
-
-
 
 class Game:
     def __init__(self, engine, key, channel, limits):
@@ -187,14 +182,13 @@ class Game:
         self.current_hint = ""
         self.finished = False
         self.limits = limits
+        self.game_running = False
 
     def _dump_state(self):
         logger.debug(f"Game State: {vars(self)}")
         self.engine._dump_state()
 
     def start(self):
-        #n = len([g for g in self.GAMES.values() if not g.finished])
-        #print(f'New game on "{self.channel}" ({n} running)')
         self.engine.game_post(
             f"C'est parti ! Règles du jeu : je vous donne une ou plusieurs définition, vous devez trouver le mot associé.\n"
             f"Limite de temps : {EYFEngine.human_readable_seconds(self.limits['time_limit'])}\n"
@@ -209,52 +203,64 @@ class Game:
             self.finish()
             return
 
-        while True:
-            self.word = None
-            self.next_list = []
-            self.engine.game_post("Prochain mot dans 5 secondes ...")
-            self._dump_state()
-            time.sleep(5)
-
+        try:
+            self._prepare_next_word()
             if self.kill_switch:
-                logger.debug("Exited because of kill switch")
                 return
+            self._process_current_word()
+        except Exception as e:
+            logger.critical(e)
 
-            self.word_start_time = time.time()
-            self.word, self.definition = self.engine.wikidict.get_word_and_definition()
-            logger.info(f"Got word {self.word}, def={self.definition[0:32]}...")
+    def _prepare_next_word(self):
+        self.word = None
+        self.next_list = []
+        self.engine.game_post("Prochain mot dans 5 secondes ...")
+        self._dump_state()
+        time.sleep(5)
+
+    def _process_current_word(self):
+        self.word_start_time = time.time()
+        self.word, self.definition = self.engine.wikidict.get_word_and_definition()
+        logger.info(f"Got word {self.word}, def={self.definition[:32]}...")
+        current_word = self.word
+        self.current_hint = "".join(["_" if l in string.ascii_lowercase else l for l in current_word])
+        self._post_word_info()
+        self._reveal_hints(current_word)
+        logger.warning("_reveal_hints terminated")
+        self._post_word_reveal_result(current_word)
+        logger.warning("_post_word_reveal_result terminated")
+
+    def _post_word_info(self):
+        indication = f"{len(self.word)} lettres"
+        number_of_words = self.word.count(" ") + self.word.count("-") + 1
+        if number_of_words > 1:
+            indication += f", {number_of_words} mots"
+        self.engine.game_post(f"{indication} : \n{self.definition}")
+
+    def _reveal_hints(self, current_word):
+        max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
+        for _ in range(max_hints):
+            time.sleep(TIME_PER_HINT)
+            if current_word != self.word:
+                return
+            self.current_hint = EYFEngine.add_hint(self.current_hint, current_word)
+            self.engine.game_post(f"**Indice** : `{self.current_hint}`")
+
+    def _post_word_reveal_result(self, current_word):
+        time_elapsed_for_word = time.time() - self.word_start_time
+        if time_elapsed_for_word < WORD_TIME_LIMIT:
+            time.sleep(WORD_TIME_LIMIT - time_elapsed_for_word)
+
+        if current_word == self.word:
             current_word = self.word
-            self.current_hint = "".join(["_" if l in string.ascii_lowercase else l for l in current_word])
-            indication = f"{len(self.word)} lettres"
-            number_of_words = self.word.count(" ") + self.word.count("-") + 1
-            if number_of_words > 1:
-                indication += f", {number_of_words} mots"
-            self.engine.game_post(f"{indication} : \n{self.definition}")
-
-            max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
-            for _ in range(max_hints):
-                time.sleep(TIME_PER_HINT)
-                if current_word != self.word:
-                    return
-                self.current_hint = EYFEngine.add_hint(self.current_hint, current_word)
-                self.engine.game_post(f"**Indice** : `{self.current_hint}`")
-
-            time_elapsed_for_word = time.time() - self.word_start_time
-            if time_elapsed_for_word < WORD_TIME_LIMIT:
-                time.sleep(WORD_TIME_LIMIT - time_elapsed_for_word)
-
-            if current_word == self.word:
-                current_word = self.word
-                self.word = None
-                self.engine.game_post(f"Personne n'a trouvé, le mot était: ***{current_word}***\n")
+            self.word = None
+            self.engine.game_post(f"Personne n'a trouvé, le mot était: ***{current_word}***\n")
+            self.new_word()
 
     def found(self, player_id):
         current_word = self.word
         self.word = None
-        if player_id in self.scores:
-            self.scores[player_id] += self.current_hint.count("_")
-        else:
-            self.scores[player_id] = self.current_hint.count("_")
+        self.scores[player_id] = self.scores.get(player_id, 0) + self.current_hint.count("_")
 
         if self.scores[player_id] >= self.limits["points_limit"]:
             self.engine.game_post(
