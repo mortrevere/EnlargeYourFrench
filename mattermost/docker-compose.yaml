@@ -1,0 +1,48 @@
+version: "3.8"
+
+volumes:
+  #chatbot:
+  #minio:
+  mattermost-mysql:
+  mattermost-data:
+
+services:
+  # chatbot:
+  #   build: ./
+  #   volumes:
+  #   - chatbot:/mnt/iguy-data
+  #   - /home/nrm/dev/git/github.com/SekoiaLab/platform:/srv/repository
+  #   network_mode: host
+  #   environment:
+  #   - MATTERMOST_BOT_URL=http://localhost
+  #   - MATTERMOST_BOT_TOKEN=${MATTERMOST_BOT_TOKEN}
+  #   - GITHUB_URL=https://github.com/SekoiaLab/platform
+  #   - GIT_REPOSITORY_PATH=/srv/repository
+  #   - GITHUB_TOKEN=${GITHUB_TOKEN}
+  #   - GITHUB_USERNAME=${GITHUB_USERNAME}
+  #   - MATTERMOST_PORT=8065
+  #   - MATTERMOST_BOT_SSL_VERIFY=False
+  #   - AWS_ACCESS_KEY_ID=minioadmin
+  #   - AWS_SECRET_ACCESS_KEY=minioadmin
+  #   - S3_ENDPOINT=http://minio:9000
+  #   - S3_BUCKET=sekoia-chatbot
+
+  # minio:
+  #   image: minio/minio
+  #   command:
+  #   - minio
+  #   - server
+  #   - /data
+  #   network_mode: host
+  #   volumes:
+  #   - minio:/data
+
+  mattermost:
+    image: mattermost/platform
+    ports:
+    - 8065:8065
+    extra_hosts:
+    - dockerhost:127.0.0.1
+    volumes:
+    - mattermost-data:/mm/mattermost-data
+    - mattermost-mysql:/var/lib/mysql
