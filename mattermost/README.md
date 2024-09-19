@@ -8,6 +8,8 @@ poetry run python ../wikidict.py
 ```
 
 ## Todo
-- Save scores
-- Rewrite messages
-- i18n
+- [x] Save scores
+- [x] i18n
+- [ ] Rewrite messages
+- [ ] Documentation
+- [ ] Port discord back

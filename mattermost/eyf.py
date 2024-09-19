@@ -33,6 +33,8 @@ class EnlargeYourFrench(Plugin):
     @listen_to(".*")
     def handle_message(self, message):
         logger.debug(f"Got message, passing to engine: [{message.text}, {message.mentions}]")
+        if not message.channel_id == self.main_channel_id:
+            return
         if message.mentions:
             self.engine.handle_mention(
                 text=message.text,

@@ -17,17 +17,6 @@ CONSONANTS = "bcdfghjklmnpqrstvwz"
 
 class Wikidict():
     WIKIS = {
-        "french-full": {
-            "tag": "fr",
-            "description": "Tout le dictionnaire ou presque",
-            "wiki_category": "Catégorie:Lemmes_en_français",
-            "wiki_lang": "fr",
-            "avoid-regex": [
-                "^Pluriel de .*",
-                "^Participe passé.*",
-                "^(Deuxième|Première|Troisième) personne du ((singulier|pluriel) (de l’indicatif présent|du présent du subjonctif) du verbe|singulier de|pluriel de|singulier de l’indicatif présent du verbe) \w+(\.| de \w+\.)$"
-            ]
-        },
         "french-simple": {
             "tag": "simple.fr",
             "description": "Mots simples et régulièrement utilisés",
@@ -39,29 +28,60 @@ class Wikidict():
                 "^(Deuxième|Première|Troisième) personne du (singulier|pluriel).*"
             ]
         },
+        "french-full": {
+            "tag": "fr",
+            "description": "Tout le dictionnaire ou presque",
+            "wiki_category": "Catégorie:Lemmes_en_français",
+            "wiki_lang": "fr",
+            "avoid-regex": [
+                "^Pluriel de .*",
+                "^Participe passé.*",
+                "^(Deuxième|Première|Troisième) personne du ((singulier|pluriel) (de l’indicatif présent|du présent du subjonctif) du verbe|singulier de|pluriel de|singulier de l’indicatif présent du verbe) \w+(\.| de \w+\.)$"
+            ]
+        },
+        "en-simple": {
+            # https://gist.githubusercontent.com/eyturner/3d56f6a194f411af9f29df4c9d4a4e6e/raw/63b6dbaf2719392cb2c55eb07a6b1d4e758cc16d/20k.txt
+            "tag" : "simple.en",
+            "wiki_category": "Category:English_lemmas",
+            "wiki_lang": "en",
+            "description": "Basic english words",
+        },
         "en-full": {
             "tag": "en",
             "wiki_category": "Category:English_lemmas",
-            "wiki_lang": "en"
+            "wiki_lang": "en",
+            "description": "Nearly all english words",
         },
-        "en-simple": {
-            "tag" : "simple.en",
-            "wiki_category": "Category:English_lemmas",
-            "wiki_lang": "en"
-        }
     }
     WORDS = []
     def __init__(self, wiki_slug="french-simple"):
         wiki_config = self.WIKIS[wiki_slug]
+        self.wiki_slug = wiki_slug
         self.lang = wiki_config["wiki_lang"]
         self.list_file = f"data/wikidict.{wiki_config['tag']}.txt"
         self.exclude_file = f"data/exclude.{wiki_config['tag']}.txt"
         self.bug_reports_file = f"data/bugs.{wiki_config['tag']}.txt"
         self.api_endpoint = f"https://{wiki_config['wiki_lang']}.wiktionary.org/w/api.php"
         self.category = wiki_config["wiki_category"]
-        self.estimated = self.get_wordlist_len()
         self.wiki_config = wiki_config
         self.load_list()
+        self.estimated = self.get_wordlist_len()
+
+    @staticmethod
+    def get_dict(_filter):
+        try:
+            return [k for k in Wikidict.WIKIS.keys() if k.startswith(_filter)][0]
+        except Exception:
+            return None
+
+    def get_dict_string(self):
+        return self.wiki_slug + " => " + self.wiki_config["description"]
+
+    def get_available_lang(self, _filter=None):
+        if _filter is not None:
+            return [k for k in self.WIKIS.keys() if _filter in k]
+        else:
+            return list(self.WIKIS.keys())
 
     def _dump_state(self):
         pass
@@ -105,11 +125,12 @@ class Wikidict():
                             or word[0].isdigit()
                             or word[-4:] == "ment"
                             or word.count(" ") > 2
-                            or re.match(r"^\w.*\w$", word)
-                            is None  # first and last char must be word letters
+                            or re.match(r"^\w.*\w$", word) is None  # first and last char must be word letters
+                            or re.match(r"^[a-zA-Z].*", word) is None
                         ):
                             f.write(word + "\n")
                             count += 1
+                self.estimated = count+500
                 progress = count / self.estimated
                 print(
                     "{}[{}{}]".format(
@@ -212,6 +233,8 @@ class Wikidict():
                     templates += [str(tmpl.arguments[0])[1:]]
                 else:
                     templates += ["(" + str(tmpl.arguments[0])[1:] + ")"]
+            elif len(tmpl.arguments) and tmpl.name in ("lb",):
+                templates += ["(" + str(tmpl.arguments[-1])[1:] + ")"]
             elif tmpl.name.startswith('variante') and tmpl.name.endswith('de') and tmpl.arguments[-1].value == self.lang:
                 templates += [f"Variante de {tmpl.arguments[0].value}"]
             elif tmpl.name in ("exemple ", "exemple"):
@@ -328,7 +351,7 @@ class Wikidict():
             return
 
         r = r.json()["parse"]["wikitext"]["*"]
-        #logger.debug(r)
+        logger.debug(r)
         # some redirection, usually because ’ != '
         if r.find("#REDIRECT [[") != -1:
             return (False, r[len("#REDIRECT [[") : -2])
@@ -336,8 +359,13 @@ class Wikidict():
         definitions = []
         for section in w.sections:
             title = str(section.title).strip()
+            logger.debug(f"Title: {title}")
             # title.find('verbe') == -1 and
-            if title and title[0:4] == "{{S|" and title.find("|fr") != -1:
+            definition_filters = {
+                "fr": title and title[0:4] == "{{S|" and title.find("|fr") != -1,
+                "en": title
+            }
+            if definition_filters[self.wiki_config['wiki_lang']]:
                 for line in str(section).split("\n"):
                     if len(line) > 2 and line[0] == "#" and line[1] != "*":
                         definitions += [self.render_wikitext(line)]
@@ -371,11 +399,14 @@ class Wikidict():
                     to_avoid += 1
                     logger.warning("Matched !")
 
-        if masked_count == definition_count:
+        if masked_count == definition_count and masked_count != 0:
             logger.debug("Too many masked definitions, giving up")
             return
-        if to_avoid == definition_count:
+        if to_avoid == definition_count and to_avoid != 0:
             logger.debug("Too many 'to-avoid' regex matched, giving up")
+            return
+        if definition_count == 0:
+            logger.debug("No definition found, giving up")
             return
 
         out = "\n".join([f"➥ `{d}`" for d in definitions])
@@ -413,6 +444,7 @@ problematic = (
     # "cuivreux",
     # "insupportables"
     # "prononcées",
+    #"attente"
 )
 
 w = Wikidict()
