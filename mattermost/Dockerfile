@@ -2,17 +2,17 @@ FROM python:3.11-alpine
 
 WORKDIR /app/
 
-RUN apk add --no-cache curl 
+RUN apk add --no-cache curl
 RUN pip install poetry
 
 COPY poetry.lock pyproject.toml /app/
 
 RUN poetry config virtualenvs.create false && \
-    poetry install --no-dev
+    poetry install --only main --no-root --no-interaction --no-ansi
 
 RUN addgroup -S eyf && \
-    adduser  -s /bin/bash -S eyf -G eyf
+    adduser -S eyf -G eyf
 
-COPY python /app/
+COPY . /app/
 
 RUN chown -R eyf:eyf /app

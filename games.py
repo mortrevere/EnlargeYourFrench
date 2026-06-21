@@ -57,7 +57,7 @@ def try_parsing_game_parameters(message):
     # game time
     try:
         i = chunks.index("minutes")
-        if i - 1 > 0 and chunks[i - 1].isdigit():
+        if i - 1 >= 0 and chunks[i - 1].isdigit():
             time_limit = int(chunks[i - 1]) * 60
     except ValueError as e:
         pass
@@ -65,7 +65,7 @@ def try_parsing_game_parameters(message):
     # points limit
     try:
         i = chunks.index("points")
-        if i - 1 > 0 and chunks[i - 1].isdigit():
+        if i - 1 >= 0 and chunks[i - 1].isdigit():
             points_limit = int(chunks[i - 1])
     except ValueError as e:
         pass
@@ -131,7 +131,7 @@ class Game:
         self.potential_players = []
         self.current_hint = ""
         self.finished = False
-        self.coroutine = None
+        self.sleep_task = None
         self.limits = limits
 
     async def start(self):
@@ -195,11 +195,17 @@ class Game:
 
     async def sleep(self, seconds):
         self.stop_sleep()
-        self.coroutine = await asyncio.sleep(seconds)
+        self.sleep_task = asyncio.create_task(asyncio.sleep(seconds))
+        try:
+            await self.sleep_task
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self.sleep_task = None
 
     def stop_sleep(self):
-        if self.coroutine is not None and not self.coroutine.done():
-            self.coroutine.cancel()
+        if self.sleep_task is not None and not self.sleep_task.done():
+            self.sleep_task.cancel()
 
     async def found(self, player_id):
         current_word = self.word

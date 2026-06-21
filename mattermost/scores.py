@@ -1,35 +1,38 @@
-import os.path as path
-import re
 import json
+from pathlib import Path
 
 GLOBAL_SCORES = {}
-SCORES_FILE = "data/high_scores.json"
+MODULE_DIR = Path(__file__).resolve().parent
+SCORES_FILE = MODULE_DIR / "data" / "high_scores.json"
 
 class ScoreHandler():
     def __init__(self):
         self.GLOBAL_SCORES = {}
         self.GLOBAL_SCORES.clear()
-        if not path.exists(SCORES_FILE):
+        if not SCORES_FILE.exists():
             return
         with open(SCORES_FILE, mode="r", encoding="utf-8") as f:
             self.GLOBAL_SCORES = json.load(f)
         print(self.GLOBAL_SCORES)
 
     def save(self):
+        SCORES_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(SCORES_FILE, mode="w", encoding="utf-8") as f:
-            f.write(json.dumps(self.GLOBAL_SCORES))
+            json.dump(self.GLOBAL_SCORES, f, ensure_ascii=False, indent=2)
 
     def update(self, channel, game_scores): # channel is a unique str id, game_score is dict player_id (int) -> score (int)
         # find maximum score, this player will get 1 point added to its win rate
         if not len(game_scores.values()):
             return
         max_score = max(game_scores.values())
+        if max_score <= 0:
+            return
         print("max score is", max_score)
 
         self.GLOBAL_SCORES.setdefault(channel, {})
         clean_game_scores = {}
         for k, v in game_scores.items():
-            clean_game_scores[str(k)] = game_scores[k]
+            clean_game_scores[str(k)] = v
         game_scores = clean_game_scores
         for player in game_scores:
             player = str(player)

@@ -1,8 +1,17 @@
 import os
 from mmpy_bot import Bot, Plugin, listen_to
 from mmpy_bot.settings import Settings
-from engine import EYFEngine
 from loguru import logger
+try:
+    from .engine import EYFEngine
+except ImportError:
+    from engine import EYFEngine
+
+
+def parse_bool(value, default=False):
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 class EnlargeYourFrench(Plugin):
     def __init__(self, main_channel_id=None):
@@ -41,6 +50,12 @@ class EnlargeYourFrench(Plugin):
                 channel_id=message.channel_id,
                 _message=message
             )
+        elif not self.engine.has_unfinished_game(message.channel_id):
+            self.engine._handle_play_request(
+                text=message.text,
+                channel_id=message.channel_id,
+                _message=message
+            )
         else:
             self.engine.handle_message(
                 text=message.text,
@@ -56,7 +71,7 @@ bot_settings = Settings(
     MATTERMOST_PORT=int(os.getenv("MATTERMOST_PORT", 8065)),
     BOT_TOKEN=os.getenv("MATTERMOST_BOT_TOKEN", "tebqtyxqxb87fyynfabko1i3cy"),
     BOT_TEAM=os.getenv("MATTERMOST_BOT_TEAM", "dev"),
-    SSL_VERIFY=bool(os.getenv("MATTERMOST_BOT_SSL_VERIFY", False)),
+    SSL_VERIFY=parse_bool(os.getenv("MATTERMOST_BOT_SSL_VERIFY"), default=False),
 )
 
 bot = Bot(settings=bot_settings, plugins=[EnlargeYourFrench()])

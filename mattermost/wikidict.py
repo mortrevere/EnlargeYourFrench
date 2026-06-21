@@ -5,6 +5,7 @@ import requests
 import random
 import os
 import math
+from pathlib import Path
 import wikitextparser as wtp
 from loguru import logger
 import time
@@ -36,7 +37,7 @@ class Wikidict():
             "avoid-regex": [
                 "^Pluriel de .*",
                 "^Participe passé.*",
-                "^(Deuxième|Première|Troisième) personne du ((singulier|pluriel) (de l’indicatif présent|du présent du subjonctif) du verbe|singulier de|pluriel de|singulier de l’indicatif présent du verbe) \w+(\.| de \w+\.)$"
+                r"^(Deuxième|Première|Troisième) personne du ((singulier|pluriel) (de l’indicatif présent|du présent du subjonctif) du verbe|singulier de|pluriel de|singulier de l’indicatif présent du verbe) \w+(\.| de \w+\.)$"
             ]
         },
         "en-simple": {
@@ -56,16 +57,33 @@ class Wikidict():
     WORDS = []
     def __init__(self, wiki_slug="french-simple"):
         wiki_config = self.WIKIS[wiki_slug]
+        self.base_dir = Path(__file__).resolve().parent
         self.wiki_slug = wiki_slug
         self.lang = wiki_config["wiki_lang"]
-        self.list_file = f"data/wikidict.{wiki_config['tag']}.txt"
-        self.exclude_file = f"data/exclude.{wiki_config['tag']}.txt"
-        self.bug_reports_file = f"data/bugs.{wiki_config['tag']}.txt"
+        self.list_file = self.base_dir / "data" / f"wikidict.{wiki_config['tag']}.txt"
+        self.exclude_file = self.base_dir / "data" / f"exclude.{wiki_config['tag']}.txt"
+        self.bug_reports_file = self.base_dir / "data" / f"bugs.{wiki_config['tag']}.txt"
         self.api_endpoint = f"https://{wiki_config['wiki_lang']}.wiktionary.org/w/api.php"
         self.category = wiki_config["wiki_category"]
         self.wiki_config = wiki_config
+        self.forced_words = self._load_forced_words()
         self.load_list()
         self.estimated = self.get_wordlist_len()
+
+    def _load_forced_words(self):
+        raw_words = os.getenv("EYF_FORCED_WORDS", "").strip()
+        if not raw_words:
+            return []
+
+        forced_words = []
+        for chunk in raw_words.split("||"):
+            if not chunk.strip():
+                continue
+            if "=" not in chunk:
+                raise ValueError("EYF_FORCED_WORDS entries must use word=definition syntax")
+            word, definition = chunk.split("=", 1)
+            forced_words.append((word.strip().lower(), definition.strip()))
+        return forced_words
 
     @staticmethod
     def get_dict(_filter):
@@ -96,6 +114,7 @@ class Wikidict():
 
     def create_list_file(self):
         logger.info("Loading words from API...")
+        self.list_file.parent.mkdir(parents=True, exist_ok=True)
         params = {
             "format": "json",
             "action": "query",
@@ -145,6 +164,7 @@ class Wikidict():
 
     def bug_report(self, word, info):
         logger.warning(f"A bug was reported : {word}\n{info}")
+        self.bug_reports_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.bug_reports_file, mode="a", encoding="utf8") as f:
             f.write(f">{word}<\n{info}\n")
 
@@ -156,7 +176,8 @@ class Wikidict():
 
 
     def exclude(self, word):
-        self.WORDS.remove(word)
+        if word in self.WORDS:
+            self.WORDS.remove(word)
         with open(self.exclude_file, mode="a", encoding="utf8") as f:
             f.write(word + "\n")
 
@@ -178,7 +199,7 @@ class Wikidict():
         return False
 
     def remove_ref(self, raw_html):
-        cleanr = re.compile("<ref>.*?</ref>")
+        cleanr = re.compile(r"<ref>.*?</ref>", re.DOTALL)
         return re.sub(cleanr, "", raw_html)
 
     def remove_duplicates(self, input_list):
@@ -213,7 +234,7 @@ class Wikidict():
         )
         chunks_out = []
         for chunk in chunks:
-            if re.match("\[\[.*\]\]", chunk):
+            if re.match(r"\[\[.*\]\]", chunk) and links:
                 chunks_out += [links.pop(0)]
             else:
                 chunks_out += [chunk]
@@ -235,7 +256,12 @@ class Wikidict():
                     templates += ["(" + str(tmpl.arguments[0])[1:] + ")"]
             elif len(tmpl.arguments) and tmpl.name in ("lb",):
                 templates += ["(" + str(tmpl.arguments[-1])[1:] + ")"]
-            elif tmpl.name.startswith('variante') and tmpl.name.endswith('de') and tmpl.arguments[-1].value == self.lang:
+            elif (
+                len(tmpl.arguments)
+                and tmpl.name.startswith('variante')
+                and tmpl.name.endswith('de')
+                and tmpl.arguments[-1].value == self.lang
+            ):
                 templates += [f"Variante de {tmpl.arguments[0].value}"]
             elif tmpl.name in ("exemple ", "exemple"):
                 templates += [None]
@@ -250,7 +276,7 @@ class Wikidict():
         logger.debug(chunks)
         chunks_out = []
         for chunk in chunks:
-            if re.match("\{\{.*\}\}", chunk) and len(templates) > 0:
+            if re.match(r"\{\{.*\}\}", chunk) and len(templates) > 0:
                 template_resolved = templates.pop(0)
                 checks = (
                     template_resolved is None,
@@ -419,6 +445,10 @@ class Wikidict():
 
 
     def get_word_and_definition(self):
+        if self.forced_words:
+            word, definition = self.forced_words.pop(0)
+            return html.unescape(word).replace("œ", "oe"), html.unescape(definition)
+
         definition = None
         word = None
         while definition is None:

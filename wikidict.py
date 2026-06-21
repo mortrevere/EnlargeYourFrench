@@ -5,17 +5,20 @@ import requests
 import random
 import os
 import math
+from pathlib import Path
 import wikitextparser as wtp
 
 VOWELS = "aeiouy"
 CONSONANTS = "bcdfghjklmnpqrstvwz"
+MODULE_DIR = Path(__file__).resolve().parent
+DATA_DIR = MODULE_DIR / "data"
 
 
 class Wiki:
     def __init__(self, lang, category, estimated):
         self.lang = lang
-        self.list_file = f"data/wikidict.{lang}.txt"
-        self.exclude_file = f"data/exclude.{lang}.txt"
+        self.list_file = DATA_DIR / f"wikidict.{lang}.txt"
+        self.exclude_file = DATA_DIR / f"exclude.{lang}.txt"
         self.api_endpoint = f"https://{lang}.wiktionary.org/w/api.php"
         self.category = category
         self.estimated = estimated
@@ -31,6 +34,7 @@ LANG = "fr"  # TODO temporary
 
 def create_list_file(lang):
     print("loading from API...")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     params = {
         "format": "json",
         "action": "query",
@@ -79,7 +83,8 @@ def create_list_file(lang):
 
 def bug_report(word, info):
     print(f"A bug was reported : {word}\n{info}")
-    with open("data/bug_reports.txt", mode="a", encoding="utf8") as f:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(DATA_DIR / "bug_reports.txt", mode="a", encoding="utf8") as f:
         f.write(f">{word}<\n{info}\n")
 
 def load_excluded(lang):
@@ -115,7 +120,7 @@ print(f"loaded {len(WORDS)} words")
 
 
 def remove_ref(raw_html: str) -> str:
-    cleanr = re.compile("<ref>.*?</ref>")
+    cleanr = re.compile(r"<ref>.*?</ref>", re.DOTALL)
     return re.sub(cleanr, "", raw_html)
 
 
@@ -135,7 +140,7 @@ def render_wikitext(wikitext):
     )
     chunks_out = []
     for chunk in chunks:
-        if re.match("\[\[.*\]\]", chunk):
+        if re.match(r"\[\[.*\]\]", chunk) and links:
             chunks_out += [links.pop(0)]
         else:
             chunks_out += [chunk]
@@ -150,7 +155,7 @@ def render_wikitext(wikitext):
             templates += [f"({content.capitalize()})"]
         elif len(tmpl.arguments) and tmpl.name in ("w","lien"):
             templates += [str(tmpl.arguments[0])[1:]]
-        elif content == 'variante de' and tmpl.arguments[-1].value == 'fr':
+        elif content == 'variante de' and len(tmpl.arguments) and tmpl.arguments[-1].value == 'fr':
             templates += [f"Variante de {tmpl.arguments[0].value}"]
         else:
             templates += [content]
@@ -160,7 +165,7 @@ def render_wikitext(wikitext):
     )
     chunks_out = []
     for chunk in chunks:
-        if re.match("\{\{.*\}\}", chunk) and len(templates) > 0:
+        if re.match(r"\{\{.*\}\}", chunk) and len(templates) > 0:
             chunks_out += [templates.pop(0)]
         else:
             chunks_out += [chunk]

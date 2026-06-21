@@ -1,5 +1,5 @@
 import os
-import inspect
+import importlib
 import math
 import random
 import string
@@ -9,19 +9,26 @@ from typing import List, Tuple, Optional
 
 from Levenshtein import distance
 from loguru import logger
-from wikidict import Wikidict
-
-import scores
+try:
+    from .wikidict import Wikidict
+    from . import scores
+except ImportError:
+    from wikidict import Wikidict
+    import scores
 #import i18n_fr as messages
-messages = __import__("i18n_" + os.getenv("EYF_LOCALE", "fr"))
+_messages_name = "i18n_" + os.getenv("EYF_LOCALE", "fr")
+try:
+    messages = importlib.import_module(f".{_messages_name}", package=__package__)
+except Exception:
+    messages = importlib.import_module(_messages_name)
 # Constants
-GLOBAL_TIME_LIMIT = 900
-WORD_TIME_LIMIT = 50
-WORD_COUNT_LIMIT = 20
-TIME_PER_HINT = 10
+GLOBAL_TIME_LIMIT = int(os.getenv("EYF_GLOBAL_TIME_LIMIT", "900"))
+WORD_TIME_LIMIT = int(os.getenv("EYF_WORD_TIME_LIMIT", "50"))
+WORD_COUNT_LIMIT = int(os.getenv("EYF_WORD_COUNT_LIMIT", "20"))
+TIME_PER_HINT = int(os.getenv("EYF_TIME_PER_HINT", "10"))
 PERCENT_PER_HINT = 0.2  # percent of word to reveal every TIME_PER_HINT seconds
 TOTAL_HINT_PERCENT = 0.6
-POINTS_LIMIT = 40
+POINTS_LIMIT = int(os.getenv("EYF_POINTS_LIMIT", "40"))
 NEXT_QUORUM_FACTOR = 0.5  # percent of players
 RETELL_DEFINITION_AFTER_MESSAGE_COUNT = 5
 
@@ -47,14 +54,8 @@ class EYFEngine:
         self._check_backend()
         self.backend.post_general(messages.READY_TO_PLAY)
 
-    def _get_game(self):
-        stack = inspect.stack()
-        caller = stack[2][0]
-        return self.GAMES[caller.f_locals["self"].key]
-
-    def game_post(self, text):
-        game = self._get_game()
-        self.backend.post_in(game.channel, text)
+    def game_post(self, channel_id, text):
+        self.backend.post_in(channel_id, text)
 
     def get_game(self, key):
         return self.GAMES.get(key)
@@ -189,24 +190,24 @@ class Game:
         dict_slug = Wikidict.get_dict(self.game_config["dictionary"])
         if dict_slug is None:
             raise Exception(f'Couldn\'t find dictionary {self.game_config["dictionary"]}')
-        self.engine.wikidict = Wikidict(wiki_slug=dict_slug)
+        self.wikidict = Wikidict(wiki_slug=dict_slug)
 
     def _dump_state(self):
         logger.debug(f"Game State: {vars(self)}")
         self.engine._dump_state()
 
     def start(self):
-        self.engine.game_post(messages.GAME_POST_START + 
+        self.engine.game_post(self.channel, messages.GAME_POST_START +
             f"Limite de temps : {EYFEngine.human_readable_seconds(self.game_config['time_limit'])}\n"
             f"Limite de points: {self.game_config['points_limit']}\n"
-            f"Dictionnaire: {self.engine.wikidict.get_dict_string()}"
+            f"Dictionnaire: {self.wikidict.get_dict_string()}"
         )
         self.new_word()
 
     def new_word(self):
         self.kill_switch = False
         if time.time() - self.game_start_time > self.game_config['time_limit']:
-            self.engine.game_post(messages.TIME_LIMIT_ACHIEVED)
+            self.engine.game_post(self.channel, messages.TIME_LIMIT_ACHIEVED)
             self.finish()
             return
 
@@ -221,13 +222,13 @@ class Game:
     def _prepare_next_word(self):
         self.word = None
         self.next_list = []
-        self.engine.game_post(messages.NEXT_WORD_5_SECONDS)
+        self.engine.game_post(self.channel, messages.NEXT_WORD_5_SECONDS)
         self._dump_state()
         time.sleep(5)
 
     def _process_current_word(self):
         self.word_start_time = time.time()
-        self.word, self.definition = self.engine.wikidict.get_word_and_definition()
+        self.word, self.definition = self.wikidict.get_word_and_definition()
         logger.info(f"Got word {self.word}, def={self.definition[:32]}...")
         current_word = self.word
         self.current_hint = "".join(["_" if l in string.ascii_lowercase else l for l in current_word])
@@ -240,7 +241,7 @@ class Game:
         number_of_words = self.word.count(" ") + self.word.count("-") + 1
         if number_of_words > 1:
             indication += f", {number_of_words} mots"
-        self.engine.game_post(f"{indication} : \n{self.definition}")
+        self.engine.game_post(self.channel, f"{indication} : \n{self.definition}")
 
     def _reveal_hints(self, current_word):
         max_hints = round(TOTAL_HINT_PERCENT / PERCENT_PER_HINT)
@@ -251,7 +252,7 @@ class Game:
             self.current_hint = EYFEngine.add_hint(self.current_hint, current_word)
             if self.received_messages >= RETELL_DEFINITION_AFTER_MESSAGE_COUNT:
                 self._post_word_info()
-            self.engine.game_post(messages.HINT.format(hint=self.current_hint))
+            self.engine.game_post(self.channel, messages.HINT.format(hint=self.current_hint))
             self.received_messages = 0
 
     def _post_word_reveal_result(self, current_word):
@@ -262,7 +263,7 @@ class Game:
         if current_word == self.word:
             current_word = self.word
             self.word = None
-            self.engine.game_post(messages.NO_ONE_FOUND_WORD.format(current_word=current_word))
+            self.engine.game_post(self.channel, messages.NO_ONE_FOUND_WORD.format(current_word=current_word))
             self.new_word()
 
     def found(self, player_id):
@@ -272,11 +273,13 @@ class Game:
 
         if self.scores[player_id] >= self.game_config["points_limit"]:
             self.engine.game_post(
+                self.channel,
                 messages.WORD_FOUND.format(player_id=player_id, points=self.current_hint.count('_'), current_word=current_word) + messages.SCORE_LIMIT_REACHED
             )
             self.finish()
         else:
             self.engine.game_post(
+                self.channel,
                 messages.WORD_FOUND.format(player_id=player_id, points=self.current_hint.count('_'), current_word=current_word)
             )
             self.new_word()
@@ -287,16 +290,17 @@ class Game:
             if len(self.next_list) >= len(self.potential_players) * NEXT_QUORUM_FACTOR:
                 current_word = self.word
                 self.word = None
-                self.engine.game_post(messages.NEXT_MESSAGE.format(current_word=current_word))
-                self.engine.wikidict.exclude(current_word)
+                self.engine.game_post(self.channel, messages.NEXT_MESSAGE.format(current_word=current_word))
+                self.wikidict.exclude(current_word)
                 self.new_word()
             else:
                 self.engine.game_post(
+                    self.channel,
                     messages.VOTING_TO_NEXT.format(current_votes=len(self.next_list), votes_needed=math.ceil(len(self.potential_players) * NEXT_QUORUM_FACTOR))
                 )
 
     def soclose(self, player_id):
-        self.engine.game_post(f"@{player_id} est très proche !")
+        self.engine.game_post(self.channel, f"@{player_id} est très proche !")
 
     def potential(self, player_id):
         if player_id not in self.potential_players:
@@ -308,12 +312,12 @@ class Game:
         self.kill_switch = True
         self.received_messages = 0
         self.engine.SCORE_HANDLER.update(self.key, self.scores)
-        self.engine.game_post(messages.FINISH_SCORES.format(scores=self.engine.get_score_string(self.scores)))
+        self.engine.game_post(self.channel, messages.FINISH_SCORES.format(scores=self.engine.get_score_string(self.scores)))
 
     def report_bug(self, message):
         if self.word is not None:
-            self.engine.wikidict.bug_report(self.word, message.content)
-            self.engine.game_post(messages.BUG_REPORT.format(word=self.word))
+            self.wikidict.bug_report(self.word, message.content)
+            self.engine.game_post(self.channel, messages.BUG_REPORT.format(word=self.word))
             self.new_word()
 
     def handle_response(self, player_id, response):
